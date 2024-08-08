@@ -1,3 +1,5 @@
+#include <thread>
+
 #include "application.h"
 
 Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx_can_id)
@@ -41,60 +43,73 @@ bool Application::Execute()
       return 1;
   }
 
-    while (1)
+  int flags = fcntl(m_socket, F_GETFL, 0);
+  if (fcntl(m_socket, F_SETFL, flags | O_NONBLOCK) < 0)
+  {
+      std::cout << "Error setting socket on nonblocked mode" << std::endl;
+  }
+
+  while (1)
+  {
+//    std::thread rx_socket_tread(&Application::CheckSocketForNewRxData, this);
+//    std::cout << std::this_thread::get_id() << '\n';
+//    rx_socket_tread.join();
+
+    CheckSocketForNewRxData();
+    if(!m_rx_can_deque.empty())
     {
-      CheckSocketForNewRxData();
-      if(!m_rx_can_deque.empty())
+      const CAN_Frame* const can_recieved_frame{m_rx_can_deque.front()};
+      m_rx_can_deque.pop_front();
+      mref_uds.ConvertCANFrameToUDS(can_recieved_frame);
+      delete can_recieved_frame;
+    }
+    mref_uds.Execute();
+    
+    while(!mref_uds.IsTXBufferOfUDSEmpty())
+    {
+      std::vector<CAN_Frame*>frames{mref_uds.ConvertUDSFrameToCAN()}; // return array of can frames via std::vector or std::array
+      for (auto it: frames)
       {
-        const CAN_Frame* const can_recieved_frame{m_rx_can_deque.front()};
-        m_rx_can_deque.pop_front();
-        mref_uds.ConvertCANFrameToUDS(can_recieved_frame);
-        delete can_recieved_frame;
-      }
-      mref_uds.Execute();
-      
-      while(!mref_uds.IsTXBufferOfUDSEmpty())
-      {
-        std::vector<CAN_Frame*>frames{mref_uds.ConvertUDSFrameToCAN()}; // return array of can frames via std::vector or std::array
-        for (auto it: frames)
-        {
-          m_tx_can_deque.push_back(it); //need check
-        }
-      }
-      //  if tx queue is not empty && transmission is
-      //  not active, transmit can frame via socket
-
-      switch (mref_uds.GetUDSStatus())
-      {
-      case UDS::Status_is_executing_rx_ff:
-        TransmitCanFrameToSocket();
-        mref_uds.SetUDSStatus(UDS::Status_rx_waits_for_FCF);
-      break;
-
-      case UDS::Status_rx_waits_for_FCF:
-      break;
-      
-      default:
-        TransmitCanFrameToSocket();
-        //std::cout << " " << m_tx_can_deque.size() << '\n';
-      break;
+        m_tx_can_deque.push_back(it); //need check
       }
     }
-    return 0;
+    //  if tx queue is not empty && transmission is
+    //  not active, transmit can frame via socket
+
+    switch (mref_uds.GetUDSStatus())
+    {
+    case UDS::Status_is_executing_rx_ff:
+      TransmitCanFrameToSocket();
+      mref_uds.SetUDSStatus(UDS::Status_rx_waits_for_FCF);
+    break;
+
+    case UDS::Status_rx_waits_for_FCF:
+    break;
+    
+    default:
+      TransmitCanFrameToSocket();
+      //std::cout << " " << m_tx_can_deque.size() << '\n';
+    break;
+    }
+  }
+
+  //rx_socket_tread.join();
+  return 0;
 }
 
 void Application::CheckSocketForNewRxData()
 {  
 // sudo slcand -o -c -s5 /dev/ttyACM0 can0
 // sudo ifconfig can0 up
+
   volatile int nbytes;
   socklen_t  len = sizeof(m_addr);
   nbytes = recvfrom(m_socket, &m_frame, sizeof(can_frame),
                     0, (struct sockaddr*)&m_addr, &len);
 
   if (nbytes < 0) {
-      perror("Read");
-    //   return 1;
+      //perror("Read");
+      return;
   }
 
 

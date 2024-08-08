@@ -35,16 +35,21 @@ public:
     DSC_Type_SafetySystemDiagnosticSession = 0x04
   };
 
-  virtual void SetUDSStatus(const Status a_status);
-  virtual Status GetUDSStatus();
-  virtual void SetSessionType(const SessionType a_sessiontype);
+  virtual void        SetUDSStatus(const Status a_status);
+  virtual Status      GetUDSStatus();
+  virtual void        SetSessionType(const SessionType a_sessiontype);
   virtual SessionType GetSessiontype();
+  virtual bool        CheckNumberOfSecurityAccessAttempts(const uint8_t a_subfunction);
+  virtual void        ReloadNumberOfSecurityAccessAttempts();
 protected:
   UDS();
   virtual ~UDS() = default;
 
   Status      m_status;
   SessionType m_sessiontype;
+  uint8_t     m_programmingsession_number_of_attempts{1};
+  uint8_t     m_extendeddiagnosticsession_number_of_attempts{1};
+  uint8_t     m_safetysystemdiagnosticsession_number_of_attempts{1};
   SeedSize    m_seed_size;
   uint64_t    m_seed;
   uint64_t    m_key;
