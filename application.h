@@ -1,0 +1,58 @@
+#ifndef __APPLICATION_H__
+#define __APPLICATION_H__
+
+#include <deque>
+#include <queue>
+#include <string>
+#include <sys/socket.h>
+#include <sys/un.h>
+
+
+#include <iostream>
+#include <sstream>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <linux/can.h>
+#include <linux/can/raw.h>
+
+#include "can_frame.h"
+
+#include "uds.h"
+
+class Application
+{
+public:
+  Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx_can_id);
+  ~Application();
+
+  bool Execute();
+private:
+  std::queue<std::string> m_rx_socket_queue;
+  std::queue<std::string> m_tx_socket_queue;
+  
+  std::deque <CAN_Frame*> m_rx_can_deque;
+  std::deque <CAN_Frame*> m_tx_can_deque;
+
+  //ISock&         mref_socket;
+  int            m_socket;
+  sockaddr_can   m_addr;
+  ifreq          m_ifr;
+  can_frame      m_frame;
+
+  UDSOnCAN&      mref_uds;
+
+  const uint32_t m_ecu_rx_can_id;
+  const uint32_t m_ecu_tx_can_id;
+
+
+  void CheckSocketForNewRxData();
+  void TransmitCanFrameToSocket();
+};
+
+#endif //__APPLICATION_H__
