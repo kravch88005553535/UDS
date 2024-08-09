@@ -1,14 +1,18 @@
 #include <iostream>
 #include <random>
+#include <chrono>
 
 #include "uds.h"
 
-#include <chrono>
+
 
 UDS::UDS()
   : m_status{Status_ok}
   , m_sessiontype{DSC_Type_DefaultSession}
-  , m_seed_size{Seed_size_5_byte}
+  , m_programmingsession_number_of_attempts{5}
+  , m_extendeddiagnosticsession_number_of_attempts{5}
+  , m_safetysystemdiagnosticsession_number_of_attempts{5}
+  , m_seed_size{Seed_size_4_byte}
   , m_seed{0}
   , m_key{0}
 {
@@ -40,16 +44,22 @@ bool UDS::CheckNumberOfSecurityAccessAttempts(const uint8_t a_subfunction)
   {
     case 0x01:
     {
-      return m_programmingsession_number_of_attempts--;
+      if(m_programmingsession_number_of_attempts) 
+        return m_programmingsession_number_of_attempts--;
     }
+    break;
     case 0x03:
     {
-      return m_extendeddiagnosticsession_number_of_attempts--;
+      if(m_extendeddiagnosticsession_number_of_attempts)
+        return m_extendeddiagnosticsession_number_of_attempts--;
     }
+    break;
     case 0x05:
     {
-      return m_safetysystemdiagnosticsession_number_of_attempts--;
+      if(m_safetysystemdiagnosticsession_number_of_attempts)
+        return m_safetysystemdiagnosticsession_number_of_attempts--;
     }
+    break;
     default:
       return false;
   }
@@ -238,6 +248,7 @@ void UDSOnCAN::Execute()
           if(!CheckNumberOfSecurityAccessAttempts(subfunction))
           {
             MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_ExceededNumberOfAttempts);
+            break;
           }            
 
           uint8_t* response_data{new uint8_t[subfunction_size+seed_size]};
