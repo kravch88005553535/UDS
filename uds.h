@@ -17,7 +17,6 @@ public:
     Status_is_executing_rx_ff,
     Status_rx_waits_for_FCF
   };
-
   enum SeedSize
   {
     Seed_size_1_byte = 1,
@@ -26,7 +25,6 @@ public:
     Seed_size_4_byte = 4,
     Seed_size_5_byte = 5
   };
-
   enum SessionType
   {
     DSC_Type_DefaultSession = 0x01,
@@ -47,9 +45,11 @@ protected:
 
   Status      m_status;
   SessionType m_sessiontype;
-  uint8_t     m_programmingsession_number_of_attempts{1};
-  uint8_t     m_extendeddiagnosticsession_number_of_attempts{1};
-  uint8_t     m_safetysystemdiagnosticsession_number_of_attempts{1};
+  uint8_t     m_sa_secsecurity_level_unlocked;
+  bool        m_sa_requestsequenceerror;
+  uint8_t     m_programmingsession_number_of_attempts;
+  uint8_t     m_extendeddiagnosticsession_number_of_attempts;
+  uint8_t     m_safetysystemdiagnosticsession_number_of_attempts;
   SeedSize    m_seed_size;
   uint64_t    m_seed;
   uint64_t    m_key;

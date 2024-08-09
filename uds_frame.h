@@ -104,7 +104,6 @@ public:
     PCI_ConsecutiveFrame = 0x2,
     PCI_FlowControlFrame = 0x3
   };
-
   enum FCF_Flag
   {
     FCF_Flag_CTS      = 0x00,
@@ -112,17 +111,6 @@ public:
     FCF_Flag_Overflow = 0x02
   };
 
-
-  // enum PayloadSize
-  // {
-  //   PayloadSize_1b = 1,
-  //   PayloadSize_2b = 2,
-  //   PayloadSize_3b = 3,
-  //   PayloadSize_4b = 4,
-  //   PayloadSize_5b = 5,
-  //   PayloadSize_6b = 6,
-  //   PayloadSize_7b = 7,
-  // };
 
   UDS_Frame();
   ~UDS_Frame();

@@ -4,11 +4,11 @@
 
 #include "uds.h"
 
-
-
 UDS::UDS()
   : m_status{Status_ok}
   , m_sessiontype{DSC_Type_DefaultSession}
+  , m_sa_secsecurity_level_unlocked{0x00}
+  , m_sa_requestsequenceerror{true}
   , m_programmingsession_number_of_attempts{5}
   , m_extendeddiagnosticsession_number_of_attempts{5}
   , m_safetysystemdiagnosticsession_number_of_attempts{5}
@@ -16,8 +16,8 @@ UDS::UDS()
   , m_seed{0}
   , m_key{0}
 {
+  //start all timers
 }
-
 void UDS::SetUDSStatus(const Status a_status)
 {
   m_status = a_status;
@@ -32,29 +32,31 @@ void UDS::SetSessionType(const SessionType a_sessiontype)
     return;
   
   m_sessiontype = a_sessiontype;
+  m_sa_requestsequenceerror = true;
+  m_sa_secsecurity_level_unlocked = 0x00;
 }
 UDS::SessionType UDS::GetSessiontype()
 {
   return m_sessiontype;
 }
-
 bool UDS::CheckNumberOfSecurityAccessAttempts(const uint8_t a_subfunction)
 {
-  switch(a_subfunction)
+  auto requestseed{a_subfunction};
+  switch(requestseed)
   {
-    case 0x01:
+    case 0x02:
     {
       if(m_programmingsession_number_of_attempts) 
         return m_programmingsession_number_of_attempts--;
     }
     break;
-    case 0x03:
+    case 0x04:
     {
       if(m_extendeddiagnosticsession_number_of_attempts)
         return m_extendeddiagnosticsession_number_of_attempts--;
     }
     break;
-    case 0x05:
+    case 0x06:
     {
       if(m_safetysystemdiagnosticsession_number_of_attempts)
         return m_safetysystemdiagnosticsession_number_of_attempts--;
@@ -65,12 +67,12 @@ bool UDS::CheckNumberOfSecurityAccessAttempts(const uint8_t a_subfunction)
   }
   return false;
 }
-
 void UDS::ReloadNumberOfSecurityAccessAttempts()
 {
   m_programmingsession_number_of_attempts = 5;
   m_extendeddiagnosticsession_number_of_attempts = 5;
   m_safetysystemdiagnosticsession_number_of_attempts = 5;
+  m_sa_requestsequenceerror = true;
 }
 
 
@@ -228,63 +230,93 @@ void UDSOnCAN::Execute()
       case UDS_Frame::Service::SecurityAccess:
       {
         constexpr auto subfunction_size{1};
-        constexpr auto seed_size{5};
-        const uint8_t subfunction{*(uds_frame->GetData())};
-        //check current diagnostic session & how to jump to it
-        //if session is !ok, transmit negative response
+        const uint8_t secutityaccess_type{*(uds_frame->GetData())};
 
+        if(secutityaccess_type > 0x06 || secutityaccess_type == 0)
+        {
+          MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_Subfunctionnotsupported);
+          break;
+        }
+        //check current diagnostic session
         //if session is not correct
         //MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_ConditionsNotCorrect);
 
-
-          
-
-        //check unmber of tries
-        // if !ok, transmit negative response nrc = exceed number of tries
-        //if ok, transmit seed
-        //check key
-        if(subfunction %2 == 0x01)
+        if(secutityaccess_type % 2 == 0x01)
         {
-          if(!CheckNumberOfSecurityAccessAttempts(subfunction))
+          if(uds_frame->Getdatalength() > subfunction_size)
+          {
+            MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
+            break;
+          }
+          uint8_t* response_data{new uint8_t[subfunction_size+m_seed_size]};
+          GenerateAndUpdateSecurityAccessSeed(m_seed_size);
+          response_data[0] = secutityaccess_type;
+          if(m_sa_secsecurity_level_unlocked == secutityaccess_type)
+          {
+            for (auto i{0}; i < m_seed_size; ++i)
+              response_data[m_seed_size-i] = 0;  
+          }
+          else
+          {
+            for (auto i{0}; i < m_seed_size; ++i)
+              response_data[m_seed_size-i] = *((uint8_t*)&m_seed+i);
+          }
+          MakePositiveResponse(uds_frame->GetSID(), response_data, subfunction_size+m_seed_size);
+          delete[] response_data;
+          m_sa_requestsequenceerror = false;
+        }
+        else if (secutityaccess_type % 2 == 0x00)
+        {
+          const auto message_length{subfunction_size + m_seed_size};
+          if(uds_frame->Getdatalength() > message_length)
+          {
+            MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
+            break;
+          }
+          if(m_sa_requestsequenceerror)
+          {
+            MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_RequestSequenceError);
+            break;
+          }
+          if(!CheckNumberOfSecurityAccessAttempts(secutityaccess_type))
           {
             MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_ExceededNumberOfAttempts);
             break;
-          }            
-
-          uint8_t* response_data{new uint8_t[subfunction_size+seed_size]};
-          GenerateAndUpdateSecurityAccessSeed(UDS::Seed_size_5_byte);
-          response_data[0] = subfunction;
-          for (auto i{0}; i < UDS::Seed_size_5_byte; ++i)
-            response_data[5-i] = *((uint8_t*)&m_seed+i);
-          MakePositiveResponse(uds_frame->GetSID(), response_data, subfunction_size+seed_size);
-          delete[] response_data;
-        }
-        else
-        {
+          }
           // if(!sa key delay required time timer)
           // {
           //   MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_RequiredTimeDelayNotExpired);
           //   break;
           // }
+          uint64_t recieved_key{};
+          uint8_t* rkey_ptr{reinterpret_cast<uint8_t*>(&recieved_key)};
+          const uint8_t* key_ptr{(uds_frame->GetData() + m_seed_size)};
+          for (auto i{0}; i < m_seed_size; ++i)
+            *rkey_ptr++ = *key_ptr--;
 
-          uint64_t key{1/*here init sequence*/};
-          if(CompareSecurityAccessKey(/*m_*/key))
+          if(CompareSecurityAccessKey(recieved_key))
           {
-            
+            m_sa_secsecurity_level_unlocked = secutityaccess_type - 1;
             uint8_t* response_data{new uint8_t[subfunction_size]};
-            response_data[0] = subfunction;
+            response_data[0] = secutityaccess_type;
             MakePositiveResponse(uds_frame->GetSID(), response_data, subfunction_size);
             delete[] response_data;
+            /*
+             *  In case the server supports this delay timer then after a successful
+             *  SecurityAccess service 'sendKey' execution the server internal indication information for a delay timer
+             *  invocation on a power up/reset shall be cleared by the server.
+             */
           }
           else
-          {
-            MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_InvalidKey);
-            //start sa key delay required time timer
-          }
-          
+            MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_InvalidKey); //start sa key delay required time timer
+
+          m_sa_requestsequenceerror = true;
         }
-        
-        
+        else
+        {
+          MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
+          break;
+        }
       }
       break;
 
@@ -373,7 +405,6 @@ void UDSOnCAN::Execute()
     //get last uds instance
     //if multiple frame - calculate frames, get data & execute it
     //add frame/frames to m_uds_tx_buffer
-
      delete uds_frame;
   }
 }
@@ -558,12 +589,11 @@ bool UDSOnCAN::IsTXBufferOfUDSEmpty()
 }
 void UDSOnCAN::GenerateAndUpdateSecurityAccessSeed(UDS::SeedSize a_seed_size)
 {
-  m_seed_size = a_seed_size;
   auto mt_seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-
   std::mt19937_64 mt(mt_seed);
   uint64_t bitmask{1};
   uint64_t seed{};
+  m_seed = 0;
   do
   {
     bitmask *= 256;
@@ -571,17 +601,24 @@ void UDSOnCAN::GenerateAndUpdateSecurityAccessSeed(UDS::SeedSize a_seed_size)
   } while(a_seed_size);
   bitmask -=1;
 
-  seed  = mt();
-  m_seed = seed & bitmask;
-  std::cout << std::hex << m_seed << '\n';
+  do
+  {
+    seed = mt();        //The server shall never send an all zero seed
+    seed &= bitmask;    //for a given security level that is currently locked.
+  } while (seed != 0);
+  
+  m_seed = seed;
+  std::cout << std::hex << "seed: "<< m_seed << '\n';
+  m_key = mt() & bitmask;
+  std::cout << std::hex << " key: " << m_key /*GetSecurityAccessKey()*/ << '\n';
   CalculateSecurityAccessKey();
 }
 void UDSOnCAN::CalculateSecurityAccessKey()
 {
   //USE XTEA Algorhytm
-  uint64_t calculated_key;
+  //uint64_t calculated_key;
   //calculate new key here
-  m_key = calculated_key;
+  //m_key = calculated_key;
 }
 bool UDSOnCAN::CompareSecurityAccessKey(uint64_t a_key)
 {

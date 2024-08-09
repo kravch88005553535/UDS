@@ -57,7 +57,18 @@ set/get fcf flag everywhere
 
 добавить таймеры между пакетами
 добавить длину блока пакетов(BS)
-добавить режим сессии m_sessiontype in UDS
+
+//отработать режим сессии m_sessiontype in UDS
+//security access levels 0x01 0x03 0x05
+//restore number of attempts if successful
+//действия при смене типа сессии: закрыть SA
+
+TIMERS
+----------------------
+A vehicle manufacturer specific time delay may be required before the server can positively respond to a
+service SecurityAccess ‘requestSeed’ message from the client after server power up/reset and after a certain
+number of false access attempts (see further description below).
+
 
 mf
 type|size1 || size2 || sid || did1 || did2 || data0 || data1 || data3 || 
