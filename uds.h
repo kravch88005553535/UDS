@@ -71,7 +71,7 @@ public:
   std::vector<CAN_Frame*> ConvertUDSFrameToCAN();
 
   void GenerateAndUpdateSecurityAccessSeed(UDS::SeedSize a_seed_size);
-  void CalculateSecurityAccessKey();
+  void CalculateSecurityAccessFullKey();
   uint64_t GetSecurityAccessKey();
   bool CompareSecurityAccessKey(uint64_t a_key);
 

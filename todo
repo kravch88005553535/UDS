@@ -1,35 +1,6 @@
-              UDS TX
----------------------------------------
-
-If a number of bytes specified in a UDS Packet is shorter than a number of bytes in CAN frame’s data field,
-then the sender has to pad any unused bytes in the frame. This can only be a case for Single Frame, Flow 
-Control and the last Consecutive Frame of a segmented message. If not specified differently, the default 
-value 0xCC shall be used for the frame padding to minimize the bit stuffing insertions and bit alteration
-on the wire.
-
-generate seed
-generate key
-implementation of CAN queue
-implementation of UDS
-
-Please remember that the Security Access Service Identifier (0x27) mostly supports Extended diagnostic sessions, 
-so before you request it you should know the diagnostic session that how to jump from the default session to the
-extended diagnostic session. If you want to learn this then please go to my default session tutorial and first
-learn that and then come to this session. To remind you, it is 10 03
-
-Rule #1 of crypto: “Don’t do this at home!”
-
 number of sa remaining ()
 number of try s in security access (every diagnostic mode)
 in Exceeded Number of Attempts (0x36) and Required Time Delay Not Expired (0x37)
-----> Anti brute force
-
-only the key needs to be secret
-
-SA Pass test : How to Pass Security Access with ADCS Toolkit  https://knowledge.ni.com/KnowledgeArticleDetails?id=kA03q0000019hyzCAA&l=en-US
-
-security by obscurity
-an HMAC with a pre-shared key would fit any automotive security scenario as well.
 
 default session
 
@@ -39,37 +10,25 @@ std::string          can source              can source
                       can id                  can id
                      data 1..8
 
-*turn off loopback functionality
-
-     --ok--     написать братьям китайцам по адаптеру
---in progress-- распилить фрейм ответа на несколько частей CAN
+   -- ok --     написать братьям китайцам по адаптеру
+   -- ok --     SecurityAccess XTEA key
+--in progress-- UDS RX multiple frame
 --in progress-- all buffers pop front operation
+--in progress-- отработать режим сессии m_sessiontype in UDS
 
-добавить генерацию ключа (XTEA алгоритм)
-отправить фрейм по кан
+-- need test -- if uds key successful, reset default number of tries
+-- need test -- security access levels 0x01 0x03 0x05
+-- need test -- restore number of attempts if successful
+-- need test -- действия при смене типа сессии: закрыть SA
 
-размер dlc в ответном кадре CAN
-отредактировать ODX файл (добавить новые диды)
-отработать flow control frame
-set/get fcf flag everywhere
-принять распиленный фрейм на несколько частей
-//if uds key successful, reset default number of tries
+multi frame принять распиленный фрейм на несколько частей
 
-добавить таймеры между пакетами
-добавить длину блока пакетов(BS)
+timers добавить таймеры между пакетами
+fcf set/get fcf flag everywhere добавить длину блока пакетов(BS)
 
-//отработать режим сессии m_sessiontype in UDS
-//security access levels 0x01 0x03 0x05
-//restore number of attempts if successful
-//действия при смене типа сессии: закрыть SA
 
 TIMERS
 ----------------------
 A vehicle manufacturer specific time delay may be required before the server can positively respond to a
 service SecurityAccess ‘requestSeed’ message from the client after server power up/reset and after a certain
 number of false access attempts (see further description below).
-
-
-mf
-type|size1 || size2 || sid || did1 || did2 || data0 || data1 || data3 || 
-

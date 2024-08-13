@@ -1,6 +1,7 @@
 #include <iostream>
 #include <random>
 #include <chrono>
+#include <cstdint>
 
 #include "uds.h"
 
@@ -232,7 +233,7 @@ void UDSOnCAN::Execute()
         constexpr auto subfunction_size{1};
         const uint8_t secutityaccess_type{*(uds_frame->GetData())};
 
-        if(secutityaccess_type > 0x06 || secutityaccess_type == 0)
+        if(secutityaccess_type > 0x06 || secutityaccess_type == 0x00)
         {
           MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_Subfunctionnotsupported);
           break;
@@ -249,7 +250,6 @@ void UDSOnCAN::Execute()
             break;
           }
           uint8_t* response_data{new uint8_t[subfunction_size+m_seed_size]};
-          GenerateAndUpdateSecurityAccessSeed(m_seed_size);
           response_data[0] = secutityaccess_type;
           if(m_sa_secsecurity_level_unlocked == secutityaccess_type)
           {
@@ -258,6 +258,8 @@ void UDSOnCAN::Execute()
           }
           else
           {
+            GenerateAndUpdateSecurityAccessSeed(m_seed_size);
+            
             for (auto i{0}; i < m_seed_size; ++i)
               response_data[m_seed_size-i] = *((uint8_t*)&m_seed+i);
           }
@@ -469,7 +471,7 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
   UDS_Frame* uds_frame{m_uds_tx_buffer.front()};
   m_uds_tx_buffer.pop_front();
   CAN_Frame* tx_frame{nullptr};
-  constexpr uint8_t padding{0x55};
+  constexpr uint8_t padding{0xAA};  //request padding 0x55, response padding 0xAA
   static uint16_t  ff_cf_remaining_data_bytes{}; // ff = first frame, cf = consecutive frame
 
   switch(uds_frame->GetProtocolInformation())
@@ -605,20 +607,43 @@ void UDSOnCAN::GenerateAndUpdateSecurityAccessSeed(UDS::SeedSize a_seed_size)
   {
     seed = mt();        //The server shall never send an all zero seed
     seed &= bitmask;    //for a given security level that is currently locked.
-  } while (seed != 0);
+  } while (seed == 0);
   
   m_seed = seed;
   std::cout << std::hex << "seed: "<< m_seed << '\n';
-  m_key = mt() & bitmask;
-  std::cout << std::hex << " key: " << m_key /*GetSecurityAccessKey()*/ << '\n';
-  CalculateSecurityAccessKey();
+  
+  CalculateSecurityAccessFullKey();
+  m_key = m_key & bitmask;
+  std::cout << std::hex << "key: "<< m_key << '\n';
 }
-void UDSOnCAN::CalculateSecurityAccessKey()
+void UDSOnCAN::CalculateSecurityAccessFullKey()
 {
-  //USE XTEA Algorhytm
-  //uint64_t calculated_key;
-  //calculate new key here
-  //m_key = calculated_key;
+  //using XTEA Algorhytm
+  uint64_t temp_seed{m_seed};
+  constexpr uint32_t number_of_rounds{35};
+  uint32_t* v{(uint32_t*) &temp_seed};
+  uint32_t* k{new uint32_t[4]};
+  k[0] = 0xEA27E48F;
+  k[1] = 0xDD1356EB;
+  k[2] = 0xA9E9B738;
+  k[3] = 0xFDC15287;
+
+  uint32_t v0{v[0]};
+  uint32_t v1{v[1]};
+  uint32_t sum {0};
+  uint32_t delta {0x9E3779B9};
+  for (auto i {0}; i < number_of_rounds; ++i)
+  {
+    v0 += (((v1 << 4) ^ (v1 >> 5)) + v1) ^ (sum + k[sum & 3]);
+    sum += delta;
+    v1 += (((v0 << 4) ^ (v0 >> 5)) + v0) ^ (sum + k[(sum>>11) & 3]);
+  }
+  v[0]=v0; v[1]=v1;
+
+  std::cout << "calculated sa full key: " << std::hex << temp_seed << '\n';
+  
+  m_key = temp_seed;
+  delete[] k;
 }
 bool UDSOnCAN::CompareSecurityAccessKey(uint64_t a_key)
 {
