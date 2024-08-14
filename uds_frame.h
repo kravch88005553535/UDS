@@ -111,48 +111,38 @@ public:
     FCF_Flag_Overflow = 0x02
   };
 
-
   UDS_Frame();
+  UDS_Frame(const UDS_Frame& a_other);
   ~UDS_Frame();
   
   void SetSource(const CAN_Frame::Source a_source);
   CAN_Frame::Source GetSource() const;
-  void SetCanID(const uint32_t a_can_id);
-  uint32_t GetCanID();
 
   void SetProtocolInformation(UDS_Frame::PCI a_protocol_information);
   UDS_Frame::PCI GetProtocolInformation();
 
   void SetDataLength(const uint16_t a_data_length);
-  uint16_t Getdatalength();
-
-  void SetConsecutiveFrameNumber(const uint8_t a_consecutive_frame_number);
-  uint8_t GetConsecutiveFrameNumner();
+  uint16_t GetDataLength();
 
   void SetSID(const Service a_service_id);
   Service GetSID();
 
-  void SetSubfunctionByte(uint8_t a_subfunction_byte);
-  uint8_t GetSubfunctionByte();
-
   void SetData(const uint8_t* a_payload_array, uint32_t a_payload_size, const uint32_t a_offset);
   const uint8_t* GetData();
+
+  void SetframeValidity(bool a_validity);
+  bool IsFrameValid();
 
   void SetFlagOfFCF(const FCF_Flag a_flag);
   FCF_Flag GetFlagOfFCF() const;
 private:
   CAN_Frame::Source m_source;
-  uint32_t          m_can_id;
   PCI               m_protocol_information;
   uint16_t          m_data_length;
-  uint8_t           m_consecutive_frame_number;
   Service           m_sid;
-  uint8_t           m_subfunction_byte;
   uint8_t           m_data[4096];
-  bool              is_ready; //at the end of transmission sets to true
+  bool              m_is_frame_valid;
   FCF_Flag          m_fcf_flag;
-  //rdp (including did - data identifier) request data parameters
-  //padding
 };
 
-#endif //__UDS_MESSAGE_H__
+#endif //__UDS_MESSAGE_H__at the end of transmission sets to true

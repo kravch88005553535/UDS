@@ -2,30 +2,26 @@ number of sa remaining ()
 number of try s in security access (every diagnostic mode)
 in Exceeded Number of Attempts (0x36) and Required Time Delay Not Expired (0x37)
 
-default session
-
 Socket     <---->    can frame     <---->    uds frame
 --------------------------------------------------------
 std::string          can source              can source
                       can id                  can id
                      data 1..8
 
-   -- ok --     написать братьям китайцам по адаптеру
-   -- ok --     SecurityAccess XTEA key
---in progress-- UDS RX multiple frame
---in progress-- all buffers pop front operation
+--in progress-- timers добавить таймеры между пакетами
 --in progress-- отработать режим сессии m_sessiontype in UDS
-
+-- need test -- UDS RX multiple frame  multi frame принять распиленный фрейм на несколько частей
+-- need test -- all buffers pop front operation
 -- need test -- if uds key successful, reset default number of tries
 -- need test -- security access levels 0x01 0x03 0x05
 -- need test -- restore number of attempts if successful
 -- need test -- действия при смене типа сессии: закрыть SA
 
-multi frame принять распиленный фрейм на несколько частей
+   -- ok --     написать братьям китайцам по адаптеру
+   -- ok --     SecurityAccess XTEA key
 
-timers добавить таймеры между пакетами
+
 fcf set/get fcf flag everywhere добавить длину блока пакетов(BS)
-
 
 TIMERS
 ----------------------

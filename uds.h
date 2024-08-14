@@ -45,7 +45,7 @@ protected:
 
   Status      m_status;
   SessionType m_sessiontype;
-  uint8_t     m_sa_secsecurity_level_unlocked;
+  uint8_t     m_sa_security_level_unlocked;
   bool        m_sa_requestsequenceerror;
   uint8_t     m_programmingsession_number_of_attempts;
   uint8_t     m_extendeddiagnosticsession_number_of_attempts;

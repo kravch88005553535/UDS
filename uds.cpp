@@ -8,7 +8,7 @@
 UDS::UDS()
   : m_status{Status_ok}
   , m_sessiontype{DSC_Type_DefaultSession}
-  , m_sa_secsecurity_level_unlocked{0x00}
+  , m_sa_security_level_unlocked{0x00}
   , m_sa_requestsequenceerror{true}
   , m_programmingsession_number_of_attempts{5}
   , m_extendeddiagnosticsession_number_of_attempts{5}
@@ -34,7 +34,7 @@ void UDS::SetSessionType(const SessionType a_sessiontype)
   
   m_sessiontype = a_sessiontype;
   m_sa_requestsequenceerror = true;
-  m_sa_secsecurity_level_unlocked = 0x00;
+  m_sa_security_level_unlocked = 0x00;
 }
 UDS::SessionType UDS::GetSessiontype()
 {
@@ -128,52 +128,82 @@ UDSOnCAN::~UDSOnCAN(){}
 
 bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
 {
-// //PHYSICAL ADRESSING OR FUNCTIONAL ADRESSING:
-// if(ap_can_frame->GetID() =< 0X7FF)
-// {}
-// else
-// {
-//  normal fixed addressing. 29 bit CAN ID.
-//  physical addressed messages CAN_ID = 0x18DATTSS
-//  functional addressed messages CAN_ID = 0x18DBTTSS
-// where:
-//         CAN_ID - value of CAN Identifier
-//         TT - two (hexadecimal) digits of a 8-bit Target Address value
-//         SS - two (hexadecimal) digits of a 8-bit Source Address value
-//}
+  static UDS_Frame static_uds_frame{};
+  static uint32_t  cf_data_remaining{};
+  static uint8_t   next_consecutive_frame_index{};
 
-  UDS_Frame* rx_frame{new UDS_Frame};
+  
   volatile UDS_Frame::PCI pci{(UDS_Frame::PCI)((ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0xF0) >> 4)};
-    asm("nop");
-  //if(ap_can_frame.dlc<8)//check dlc
-  //uds frame only valid  if Single Frame, Flow Control and Consecutive Frame that use CAN frame data optimization
 
   switch(pci)
   {
     case UDS_Frame::PCI::PCI_SingleFrame:
     {
-      uint8_t payload {uint8_t(ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0x0F)};
+      UDS_Frame* rx_frame{new UDS_Frame};
+      const uint8_t payload {uint8_t(ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0x0F)};
+      rx_frame->SetProtocolInformation(pci);
       rx_frame->SetSID(static_cast<UDS_Frame::Service>(ap_can_frame->GetData(CAN_Frame::DataPos_1)));
       rx_frame->SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_2), payload-1, 0);
       rx_frame->SetDataLength(payload-1);
-      //dlc < 8 ? single frame data length byte 1 bits 3..0 : single frame data length byte 2
+
+      m_uds_rx_buffer.push_back(rx_frame);
+      return true;  
     }
     break;
 
     case UDS_Frame::PCI::PCI_FirstFrame:
     {
-      uint16_t data_length{(ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0x0F) << 4 || ap_can_frame->GetData(CAN_Frame::DataPos_1)};
-      rx_frame->SetDataLength(data_length);
-    // byte 1 bits 3..0 != 0 ? ff_dl = bits 3..0 of byte 1
-    // else if bits 3..0 of byte 1 == 0 && byte 2 == 00 ff_dl = byte 3
+      constexpr auto ff_data_size{5};
+      //static_uds_frame.SetSource(ap_can_frame->GetSource());
+      cf_data_remaining = (ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0x0F) << 4 || ap_can_frame->GetData(CAN_Frame::DataPos_1);
+      static_uds_frame.SetDataLength(cf_data_remaining);
+      static_uds_frame.SetSID(static_cast<UDS_Frame::Service>(ap_can_frame->GetData(CAN_Frame::DataPos_1)));
+      static_uds_frame.SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_2), ff_data_size, 0);
+      static_uds_frame.SetframeValidity(true);
+      cf_data_remaining -= ff_data_size;
+      
+      next_consecutive_frame_index = 1;
     }
     break;
 
     case UDS_Frame::PCI::PCI_ConsecutiveFrame:
+    {
+      const uint8_t consecutive_frame_index{(uint8_t)(ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0x0F)};
+      constexpr auto cf_data_size{7};
+      const uint32_t offset{static_uds_frame.GetDataLength() - cf_data_remaining};
+
+      if(cf_data_remaining == 0)
+        break;
+
+      if(consecutive_frame_index != next_consecutive_frame_index)
+        static_uds_frame.SetframeValidity(false);
+      
+      if(cf_data_remaining <= cf_data_size)
+      {
+        static_uds_frame.SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_1), cf_data_remaining, offset);
+        cf_data_remaining = 0;
+        if(static_uds_frame.IsFrameValid())
+        {
+          UDS_Frame* rx_frame{new UDS_Frame(static_uds_frame)};
+
+          m_uds_rx_buffer.push_back(rx_frame);
+          return true; 
+        }
+      }
+      else
+      {
+        static_uds_frame.SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_1), cf_data_size, offset);
+        cf_data_remaining -= cf_data_size;
+        
+        if(++next_consecutive_frame_index > 0x0F)
+        next_consecutive_frame_index = 1;
+        //reload cf_wait timer
+      }
     //check last frame & check frame sid
     //else select offset by frame number
     //if data finished perform actions in execute
     //bits 3..0 of byte 1 is sequence number
+    }
     break;
 
     case UDS_Frame::PCI::PCI_FlowControlFrame:
@@ -195,11 +225,10 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
     default:
     break;
   }
-
   // if(!check valid values)
   //  return false;
-  m_uds_rx_buffer.push_back(rx_frame);
-    return true;  
+  while(1);
+  return false;
 }
 void UDSOnCAN::Execute()
 {
@@ -244,14 +273,14 @@ void UDSOnCAN::Execute()
 
         if(secutityaccess_type % 2 == 0x01)
         {
-          if(uds_frame->Getdatalength() > subfunction_size)
+          if(uds_frame->GetDataLength() > subfunction_size)
           {
             MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
             break;
           }
           uint8_t* response_data{new uint8_t[subfunction_size+m_seed_size]};
           response_data[0] = secutityaccess_type;
-          if(m_sa_secsecurity_level_unlocked == secutityaccess_type)
+          if(m_sa_security_level_unlocked == secutityaccess_type)
           {
             for (auto i{0}; i < m_seed_size; ++i)
               response_data[m_seed_size-i] = 0;  
@@ -270,7 +299,7 @@ void UDSOnCAN::Execute()
         else if (secutityaccess_type % 2 == 0x00)
         {
           const auto message_length{subfunction_size + m_seed_size};
-          if(uds_frame->Getdatalength() > message_length)
+          if(uds_frame->GetDataLength() > message_length)
           {
             MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
             break;
@@ -298,7 +327,7 @@ void UDSOnCAN::Execute()
 
           if(CompareSecurityAccessKey(recieved_key))
           {
-            m_sa_secsecurity_level_unlocked = secutityaccess_type - 1;
+            m_sa_security_level_unlocked = secutityaccess_type - 1;
             uint8_t* response_data{new uint8_t[subfunction_size]};
             response_data[0] = secutityaccess_type;
             MakePositiveResponse(uds_frame->GetSID(), response_data, subfunction_size);
@@ -352,7 +381,7 @@ void UDSOnCAN::Execute()
       case UDS_Frame::Service::WriteDataByIdentifier:
       {
         const uint8_t* ptr{uds_frame->GetData()};
-        auto data_length{uds_frame->Getdatalength()};
+        auto data_length{uds_frame->GetDataLength()};
         UDS_Frame::Service sid{uds_frame->GetSID()};
         const DID did{static_cast<DID>((*ptr << 8) | (*(++ptr)))};
         ++ptr;
@@ -479,7 +508,7 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
     case UDS_Frame::PCI_SingleFrame:
     {
       const uint8_t pci_shifted{static_cast<uint8_t>(uds_frame->GetProtocolInformation() << 4)};
-      const uint8_t size{static_cast<uint8_t>(uds_frame->Getdatalength()+1)};
+      const uint8_t size{static_cast<uint8_t>(uds_frame->GetDataLength()+1)};
       const uint8_t sid{static_cast<uint8_t>(uds_frame->GetSID())};
       const uint8_t* data{uds_frame->GetData()};
       tx_frame = {new CAN_Frame};
@@ -487,7 +516,7 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
       tx_frame->SetData(CAN_Frame::DataPos_0, pci_shifted | size);
       tx_frame->SetData(CAN_Frame::DataPos_1, sid);
       CAN_Frame::DataPos data_pos{CAN_Frame::DataPos_2};
-      for(auto remaining_bytes{uds_frame->Getdatalength()}; remaining_bytes > 0; --remaining_bytes)
+      for(auto remaining_bytes{uds_frame->GetDataLength()}; remaining_bytes > 0; --remaining_bytes)
       {
         tx_frame->SetData(data_pos, *data);
         data_pos = static_cast<CAN_Frame::DataPos>(data_pos + 1);
@@ -501,7 +530,7 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
     {
       constexpr auto data_bytes_total_in_ff{5};
       const uint8_t pci_shifted{static_cast<uint8_t>(uds_frame->GetProtocolInformation() << 4)};
-      ff_cf_remaining_data_bytes = uds_frame->Getdatalength()+1;
+      ff_cf_remaining_data_bytes = uds_frame->GetDataLength()+1;
       //assign data length to the frame
       volatile uint8_t size_l{static_cast<uint8_t>(ff_cf_remaining_data_bytes & 0xFF)};
       volatile uint8_t size_h{static_cast<uint8_t>((ff_cf_remaining_data_bytes & 0x0F00) >> 8)};

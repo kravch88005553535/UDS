@@ -1,5 +1,3 @@
-#include <thread>
-
 #include "application.h"
 
 Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx_can_id)
@@ -101,7 +99,6 @@ void Application::CheckSocketForNewRxData()
 {  
 // sudo slcand -o -c -s5 /dev/ttyACM0 can0
 // sudo ifconfig can0 up
-
   volatile int nbytes;
   socklen_t  len = sizeof(m_addr);
   nbytes = recvfrom(m_socket, &m_frame, sizeof(can_frame),
@@ -112,11 +109,11 @@ void Application::CheckSocketForNewRxData()
       return;
   }
 
-
   if(m_frame.can_id == m_ecu_rx_can_id)
   {
     //std::cout << "CAN ID HIT!" << '\n';
-    printf("RX: 0x%03X [%d] ",m_frame.can_id, m_frame.can_dlc);
+    printf("RX: 0x%03X [%d] ",m_frame.can_id, 
+    m_frame.can_dlc);
     for (auto i = 0; i < m_frame.can_dlc; i++)
         printf("%02X ",m_frame.data[i]);
     printf("\r\n");
@@ -126,8 +123,6 @@ void Application::CheckSocketForNewRxData()
     CAN_Frame* p_frame{new CAN_Frame(source, rx_can_id, &m_frame.data[0])};
     m_rx_can_deque.push_back(p_frame); 
   }
-
-
 
 // mref_socket.process();
 //   static std::string recieved_data{};
