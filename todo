@@ -8,8 +8,10 @@ std::string          can source              can source
                       can id                  can id
                      data 1..8
 
+--in progress-- добавить уровни доступа к сидам
 --in progress-- timers добавить таймеры между пакетами
 --in progress-- отработать режим сессии m_sessiontype in UDS
+--in progress-- add server is busy
 -- need test -- UDS RX multiple frame  multi frame принять распиленный фрейм на несколько частей
 -- need test -- all buffers pop front operation
 -- need test -- if uds key successful, reset default number of tries
@@ -19,7 +21,6 @@ std::string          can source              can source
 
    -- ok --     написать братьям китайцам по адаптеру
    -- ok --     SecurityAccess XTEA key
-
 
 fcf set/get fcf flag everywhere добавить длину блока пакетов(BS)
 

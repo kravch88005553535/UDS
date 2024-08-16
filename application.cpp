@@ -1,4 +1,5 @@
 #include "application.h"
+#include "program_timer.h"
 
 Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx_can_id)
   //: mref_socket{*(new sock_unix{std::string("/tmp/can.sock"), std::string("CAN_SOCKET"), &m_rx_socket_queue, &m_tx_socket_queue})} ///tmp/uds.sock"
@@ -26,8 +27,8 @@ if (close(m_socket) < 0) {
 bool Application::Execute()
 {
   if ((m_socket = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
-      perror("Socket");
-      return 1;
+    perror("Socket");
+    return 1;
   }
 
   strcpy(m_ifr.ifr_name, "can0" );
@@ -37,22 +38,24 @@ bool Application::Execute()
   m_addr.can_ifindex = m_ifr.ifr_ifindex;
 
   if (bind(m_socket, (struct sockaddr *)&m_addr, sizeof(m_addr)) < 0) {
-      perror("Bind");
-      return 1;
+    perror("Bind");
+    return 1;
   }
 
   int flags = fcntl(m_socket, F_GETFL, 0);
   if (fcntl(m_socket, F_SETFL, flags | O_NONBLOCK) < 0)
   {
-      std::cout << "Error setting socket on nonblocked mode" << std::endl;
+    std::cout << "Error setting socket on nonblocked mode" << std::endl;
   }
 
+  static Program_timer pt(Program_timer::TimerType_loop);
   while (1)
   {
+    pt.Check();
 //    std::thread rx_socket_tread(&Application::CheckSocketForNewRxData, this);
 //    std::cout << std::this_thread::get_id() << '\n';
 //    rx_socket_tread.join();
-
+    
     CheckSocketForNewRxData();
     if(!m_rx_can_deque.empty())
     {
@@ -183,7 +186,6 @@ void Application::CheckSocketForNewRxData()
       // }
   // }
 }
-
 void Application::TransmitCanFrameToSocket()
 {
   if(m_tx_can_deque.size() == 0)

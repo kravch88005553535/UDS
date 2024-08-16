@@ -182,13 +182,10 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
       {
         static_uds_frame.SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_1), cf_data_remaining, offset);
         cf_data_remaining = 0;
-        if(static_uds_frame.IsFrameValid())
-        {
-          UDS_Frame* rx_frame{new UDS_Frame(static_uds_frame)};
-
-          m_uds_rx_buffer.push_back(rx_frame);
-          return true; 
-        }
+        
+        UDS_Frame* rx_frame{new UDS_Frame(static_uds_frame)};
+        m_uds_rx_buffer.push_back(rx_frame);
+        return true; 
       }
       else
       {
@@ -236,15 +233,20 @@ void UDSOnCAN::Execute()
   {
     UDS_Frame* uds_frame{m_uds_rx_buffer.front()};
     m_uds_rx_buffer.pop_front();
-
-    switch(uds_frame->GetSID())
+    UDS_Frame::Service sid{uds_frame->GetSID()};
+    if(!uds_frame->IsFrameValid())
+    {
+      MakeNegativeResponse(sid, UDS_Frame::NRC_ConditionsNotCorrect);
+      delete uds_frame;
+    }
+    switch(sid)
     {
       case UDS_Frame::Service::DiagnosticSessionControl:
       {
         uint8_t sessiontype{*(uds_frame->GetData())};
         if(sessiontype > DSC_Type_SafetySystemDiagnosticSession)
         {
-          MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
+          MakeNegativeResponse(sid, UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
           break;
         }
         std::cout << "sessiontype: " << sessiontype << '\n'; //<< "sessiontype: "
@@ -253,7 +255,7 @@ void UDSOnCAN::Execute()
         SetSessionType(static_cast<UDS::SessionType>(sessiontype));
         std::cout << "m_sessiontype: " << m_sessiontype << '\n'; //<< "sessiontype: "
 
-        MakePositiveResponse(uds_frame->GetSID(), &sessiontype, 1);
+        MakePositiveResponse(sid, &sessiontype, 1);
       }
       break;
 
@@ -264,18 +266,18 @@ void UDSOnCAN::Execute()
 
         if(secutityaccess_type > 0x06 || secutityaccess_type == 0x00)
         {
-          MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_Subfunctionnotsupported);
+          MakeNegativeResponse(sid, UDS_Frame::NRC_Subfunctionnotsupported);
           break;
         }
         //check current diagnostic session
         //if session is not correct
-        //MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_ConditionsNotCorrect);
+        //MakeNegativeResponse(sid, UDS_Frame::NRC_ConditionsNotCorrect);
 
         if(secutityaccess_type % 2 == 0x01)
         {
           if(uds_frame->GetDataLength() > subfunction_size)
           {
-            MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
+            MakeNegativeResponse(sid, UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
             break;
           }
           uint8_t* response_data{new uint8_t[subfunction_size+m_seed_size]};
@@ -292,7 +294,7 @@ void UDSOnCAN::Execute()
             for (auto i{0}; i < m_seed_size; ++i)
               response_data[m_seed_size-i] = *((uint8_t*)&m_seed+i);
           }
-          MakePositiveResponse(uds_frame->GetSID(), response_data, subfunction_size+m_seed_size);
+          MakePositiveResponse(sid, response_data, subfunction_size+m_seed_size);
           delete[] response_data;
           m_sa_requestsequenceerror = false;
         }
@@ -301,22 +303,22 @@ void UDSOnCAN::Execute()
           const auto message_length{subfunction_size + m_seed_size};
           if(uds_frame->GetDataLength() > message_length)
           {
-            MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
+            MakeNegativeResponse(sid, UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
             break;
           }
           if(m_sa_requestsequenceerror)
           {
-            MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_RequestSequenceError);
+            MakeNegativeResponse(sid, UDS_Frame::NRC_RequestSequenceError);
             break;
           }
           if(!CheckNumberOfSecurityAccessAttempts(secutityaccess_type))
           {
-            MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_ExceededNumberOfAttempts);
+            MakeNegativeResponse(sid, UDS_Frame::NRC_ExceededNumberOfAttempts);
             break;
           }
           // if(!sa key delay required time timer)
           // {
-          //   MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_RequiredTimeDelayNotExpired);
+          //   MakeNegativeResponse(sid, UDS_Frame::NRC_RequiredTimeDelayNotExpired);
           //   break;
           // }
           uint64_t recieved_key{};
@@ -330,7 +332,7 @@ void UDSOnCAN::Execute()
             m_sa_security_level_unlocked = secutityaccess_type - 1;
             uint8_t* response_data{new uint8_t[subfunction_size]};
             response_data[0] = secutityaccess_type;
-            MakePositiveResponse(uds_frame->GetSID(), response_data, subfunction_size);
+            MakePositiveResponse(sid, response_data, subfunction_size);
             delete[] response_data;
             /*
              *  In case the server supports this delay timer then after a successful
@@ -339,13 +341,13 @@ void UDSOnCAN::Execute()
              */
           }
           else
-            MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_InvalidKey); //start sa key delay required time timer
+            MakeNegativeResponse(sid, UDS_Frame::NRC_InvalidKey); //start sa key delay required time timer
 
           m_sa_requestsequenceerror = true;
         }
         else
         {
-          MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
+          MakeNegativeResponse(sid, UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
           break;
         }
       }
@@ -382,7 +384,6 @@ void UDSOnCAN::Execute()
       {
         const uint8_t* ptr{uds_frame->GetData()};
         auto data_length{uds_frame->GetDataLength()};
-        UDS_Frame::Service sid{uds_frame->GetSID()};
         const DID did{static_cast<DID>((*ptr << 8) | (*(++ptr)))};
         ++ptr;
         data_length -= 2;

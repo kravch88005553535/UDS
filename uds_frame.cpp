@@ -2,7 +2,7 @@
 #include "uds_frame.h"
 
 UDS_Frame::UDS_Frame()
-  : m_is_frame_valid{false}
+  : m_is_frame_valid{true}
 {}
 
 UDS_Frame::UDS_Frame(const UDS_Frame& a_other)

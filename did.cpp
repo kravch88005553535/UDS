@@ -16,6 +16,7 @@ DID_Instance::DID_Instance(const DID a_did, const uint32_t a_size, const DID_Dat
   , m_rw{a_rw}
   , m_islocked{false}
   , mp_data_first_byte{nullptr}
+  , m_is_modified{false}
 {
   if(a_datatype == DID_Datatype_c_string || a_datatype == DID_Datatype_std_string)
     m_size++;
@@ -66,6 +67,15 @@ void DID_Instance::Unlock()
 {
   m_islocked = false;
 }
+void DID_Instance::SetModifyFlag(bool a_flag)
+{
+  m_is_modified = a_flag;
+}
+bool DID_Instance::IsModified()
+{
+  return m_is_modified;
+}
+
 
 DID_Repository::DID_Repository(){}
 DID_Repository::~DID_Repository(){}
@@ -231,6 +241,7 @@ bool DID_Repository::WriteDataIdentifier(const DID a_did, const uint8_t* ap_read
           else 
             *write_to_ptr++ = 0;
         }
+        (*it)->SetModifyFlag(true);
         is_operation_successful = true;
       }
     }

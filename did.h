@@ -70,6 +70,8 @@ public:
   bool           IsLocked();
   void           Lock();
   void           Unlock();
+  void           SetModifyFlag(bool a_flag);
+  bool           IsModified();
 private:
   const DID      m_did;
   uint32_t       m_size;
@@ -77,6 +79,7 @@ private:
   const DID_RW   m_rw;
   bool           m_islocked;
   uint8_t*       mp_data_first_byte;
+  bool           m_is_modified;
 };
 
 class DID_Repository

@@ -1,7 +1,7 @@
 #ifndef __CAN_FRAME_H__
 #define __CAN_FRAME_H__
 
-#include <stdint.h>
+#include <cstdint>
 #include "can_frame.h"
 
 class CAN_Frame
