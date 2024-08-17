@@ -6,40 +6,39 @@
 class Program_timer
 {
 public:
-  enum TimerType: uint8_t
+  enum Type: uint8_t
   {
-    TimerType_one_pulse,
-    TimerType_loop
+    Type_one_pulse,
+    Type_loop
   };
-  
-  enum TimerStatus: uint8_t
+  enum Status: uint8_t
   {
-    TimerStatus_is_stopped = 0,
-    TimerStatus_is_started = 1
+    Status_is_stopped = 0,
+    Status_is_started = 1
   };
-  
-  explicit Program_timer(TimerType a_timertype);
-  explicit Program_timer(TimerType a_timertype, uint32_t a_interval_ms);
+
+  Program_timer() = delete;
+  explicit Program_timer(Type a_type);
+  explicit Program_timer(Type a_type, uint32_t a_interval_ms);
   ~Program_timer();
   
+  void SetInterval_us(uint32_t a_interval_us);
+  uint32_t GetInterval_us() const;
   void SetInterval_ms(uint32_t a_interval_ms);
-  uint32_t GetInterval_ms() const;
   void SetInterval_sec(uint32_t a_interval_sec);
   void SetInterval_min(uint32_t a_interval_min);
   
   void Start();
   void Stop();
-  bool Check() const;
+  bool Check();
+  void Reload();
   bool IsStarted() const;
-  TimerStatus GetTimerStatus() const;
+  Status GetTimerStatus() const;
 private:
-  Program_timer() = delete;
-
-  TimerType    m_timertype;
-  TimerStatus  m_timerstatus;
-  uint32_t     m_interval_ms;
-
-  
+  int64_t   m_check_time;
+  Type      m_type;
+  Status    m_status;
+  uint32_t  m_interval_us;
 };
 
 #endif //__PROGRAM_TIMER_H__

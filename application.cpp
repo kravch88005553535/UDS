@@ -1,5 +1,6 @@
 #include "application.h"
 #include "program_timer.h"
+#include <chrono>
 
 Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx_can_id)
   //: mref_socket{*(new sock_unix{std::string("/tmp/can.sock"), std::string("CAN_SOCKET"), &m_rx_socket_queue, &m_tx_socket_queue})} ///tmp/uds.sock"
@@ -48,10 +49,14 @@ bool Application::Execute()
     std::cout << "Error setting socket on nonblocked mode" << std::endl;
   }
 
-  static Program_timer pt(Program_timer::TimerType_loop);
+  static Program_timer pt(Program_timer::Type_loop);
+  pt.SetInterval_us(2000000);
+  pt.Start();
   while (1)
   {
-    pt.Check();
+    int64_t current_time{std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count()};
+    if(pt.Check())
+      std::cout << "timer_hit! " << current_time << std::endl;
 //    std::thread rx_socket_tread(&Application::CheckSocketForNewRxData, this);
 //    std::cout << std::this_thread::get_id() << '\n';
 //    rx_socket_tread.join();
