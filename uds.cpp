@@ -16,7 +16,9 @@ UDS::UDS()
   , m_seed_size{Seed_size_4_byte}
   , m_seed{0}
   , m_key{0}
+  , m_s3_timer{Program_timer::Type_one_pulse}
 {
+  m_s3_timer.SetInterval_sec(5);
   //start all timers
 }
 void UDS::SetUDSStatus(const Status a_status)
@@ -30,8 +32,38 @@ UDS::Status UDS::GetUDSStatus()
 void UDS::SetSessionType(const SessionType a_sessiontype)
 {
   if(m_sessiontype == a_sessiontype)
-    return;
-  
+  {
+    if(m_sessiontype == DSC_Type_DefaultSession)
+    {
+      //reinitialize all session parameters
+      /*
+      The server shall reset all activated/initiated/changed
+      settings/controls during the activated session. This does not include long term changes programmed into non-volatile
+      memory.
+      Note that the locking of security access shall reset any active diagnostic functionality that
+      was dependent on security access to be unlocked (e.g., active inputOutputControl of a DID)
+      */
+      return;
+    }
+    else
+    {
+      //stop events configured via 0x86 service
+      //relock security access
+
+      return;
+    }
+
+    
+  }
+
+  if(m_sessiontype != DSC_Type_DefaultSession)
+  {
+    m_s3_timer.Reload();
+    m_s3_timer.Start();
+  }
+
+  //if (m_sessiontype == DSC_Type_DefaultSession)
+  //stop all current session events
   m_sessiontype = a_sessiontype;
   m_sa_requestsequenceerror = true;
   m_sa_security_level_unlocked = 0x00;
@@ -75,7 +107,11 @@ void UDS::ReloadNumberOfSecurityAccessAttempts()
   m_safetysystemdiagnosticsession_number_of_attempts = 5;
   m_sa_requestsequenceerror = true;
 }
-
+void UDS::CheckS3Timer()
+{
+  if(m_sessiontype != DSC_Type_DefaultSession and m_s3_timer.Check())
+    SetSessionType(DSC_Type_DefaultSession);
+}
 
 UDSOnCAN::UDSOnCAN()
   : UDS{}
@@ -229,10 +265,16 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
 }
 void UDSOnCAN::Execute()
 {
+  CheckS3Timer();
+
   if(!m_uds_rx_buffer.empty())
   {
     UDS_Frame* uds_frame{m_uds_rx_buffer.front()};
     m_uds_rx_buffer.pop_front();
+
+    if(m_s3_timer.IsStarted())
+      m_s3_timer.Reload();
+
     UDS_Frame::Service sid{uds_frame->GetSID()};
     if(!uds_frame->IsFrameValid())
     {
@@ -241,21 +283,39 @@ void UDSOnCAN::Execute()
     }
     switch(sid)
     {
+      UDS_Frame::NRC_ServiceNotSupportedInActiveSession
       case UDS_Frame::Service::DiagnosticSessionControl:
       {
-        uint8_t sessiontype{*(uds_frame->GetData())};
-        if(sessiontype > DSC_Type_SafetySystemDiagnosticSession)
+        if(uds_frame->GetDataLength() > 1)
         {
           MakeNegativeResponse(sid, UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
           break;
         }
-        std::cout << "sessiontype: " << sessiontype << '\n'; //<< "sessiontype: "
-        //check session change condition
-        //if ok
-        SetSessionType(static_cast<UDS::SessionType>(sessiontype));
-        std::cout << "m_sessiontype: " << m_sessiontype << '\n'; //<< "sessiontype: "
+        
+        uint8_t sessiontype{*(uds_frame->GetData())};
+        if(sessiontype > DSC_Type_SafetySystemDiagnosticSession)
+        {
+          MakeNegativeResponse(sid, UDS_Frame::NRC_Subfunctionnotsupported);
+          break;
+        }
+        // if() //check session change condition
+        // {
+        //   MakeNegativeResponse(sid, UDS_Frame::NRC_ConditionsNotCorrect);
+        //   break;
+        // }
 
-        MakePositiveResponse(sid, &sessiontype, 1);
+        constexpr auto subfunction_size{1};
+        constexpr auto p2_timings_size{4};
+        SetSessionType(static_cast<UDS::SessionType>(sessiontype));
+        const auto response_array_size{subfunction_size+p2_timings_size};
+        uint8_t* response_data{new uint8_t[response_array_size]};  
+        response_data[0] = sessiontype;
+        response_data[1] = 0x00;
+        response_data[2] = 0x32; //50ms
+        response_data[3] = 0x01;
+        response_data[4] = 0xF4; //5000ms
+        
+        MakePositiveResponse(sid, &response_data[0], response_array_size);
       }
       break;
 

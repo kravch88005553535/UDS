@@ -1,6 +1,5 @@
 #include "application.h"
 #include "program_timer.h"
-#include <chrono>
 
 Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx_can_id)
   //: mref_socket{*(new sock_unix{std::string("/tmp/can.sock"), std::string("CAN_SOCKET"), &m_rx_socket_queue, &m_tx_socket_queue})} ///tmp/uds.sock"
@@ -49,18 +48,8 @@ bool Application::Execute()
     std::cout << "Error setting socket on nonblocked mode" << std::endl;
   }
 
-  static Program_timer pt(Program_timer::Type_loop);
-  pt.SetInterval_us(2000000);
-  pt.Start();
   while (1)
   {
-    int64_t current_time{std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count()};
-    if(pt.Check())
-      std::cout << "timer_hit! " << current_time << std::endl;
-//    std::thread rx_socket_tread(&Application::CheckSocketForNewRxData, this);
-//    std::cout << std::this_thread::get_id() << '\n';
-//    rx_socket_tread.join();
-    
     CheckSocketForNewRxData();
     if(!m_rx_can_deque.empty())
     {
@@ -69,6 +58,7 @@ bool Application::Execute()
       mref_uds.ConvertCANFrameToUDS(can_recieved_frame);
       delete can_recieved_frame;
     }
+
     mref_uds.Execute();
     
     while(!mref_uds.IsTXBufferOfUDSEmpty())
@@ -79,27 +69,23 @@ bool Application::Execute()
         m_tx_can_deque.push_back(it); //need check
       }
     }
-    //  if tx queue is not empty && transmission is
-    //  not active, transmit can frame via socket
 
     switch (mref_uds.GetUDSStatus())
     {
-    case UDS::Status_is_executing_rx_ff:
-      TransmitCanFrameToSocket();
-      mref_uds.SetUDSStatus(UDS::Status_rx_waits_for_FCF);
-    break;
+      case UDS::Status_is_executing_rx_ff:
+        TransmitCanFrameToSocket();
+        mref_uds.SetUDSStatus(UDS::Status_rx_waits_for_FCF);
+      break;
 
-    case UDS::Status_rx_waits_for_FCF:
-    break;
-    
-    default:
-      TransmitCanFrameToSocket();
-      //std::cout << " " << m_tx_can_deque.size() << '\n';
-    break;
+      case UDS::Status_rx_waits_for_FCF:
+      break;
+      
+      default:
+        TransmitCanFrameToSocket();
+        //std::cout << " " << m_tx_can_deque.size() << '\n';
+      break;
     }
   }
-
-  //rx_socket_tread.join();
   return 0;
 }
 

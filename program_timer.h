@@ -17,7 +17,6 @@ public:
     Status_is_started = 1
   };
 
-  Program_timer() = delete;
   explicit Program_timer(Type a_type);
   explicit Program_timer(Type a_type, uint32_t a_interval_ms);
   ~Program_timer();
@@ -35,6 +34,7 @@ public:
   bool IsStarted() const;
   Status GetTimerStatus() const;
 private:
+  Program_timer() = delete;
   int64_t   m_check_time;
   Type      m_type;
   Status    m_status;

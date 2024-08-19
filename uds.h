@@ -4,6 +4,7 @@
 #include <vector>
 #include <deque>
 
+#include "program_timer.h"
 #include "uds_frame.h"
 #include "can_frame.h"
 #include "did.h"
@@ -39,20 +40,23 @@ public:
   virtual SessionType GetSessiontype();
   virtual bool        CheckNumberOfSecurityAccessAttempts(const uint8_t a_subfunction);
   virtual void        ReloadNumberOfSecurityAccessAttempts();
+  virtual void        CheckS3Timer();
 protected:
   UDS();
   virtual ~UDS() = default;
 
-  Status      m_status;
-  SessionType m_sessiontype;
-  uint8_t     m_sa_security_level_unlocked;
-  bool        m_sa_requestsequenceerror;
-  uint8_t     m_programmingsession_number_of_attempts;
-  uint8_t     m_extendeddiagnosticsession_number_of_attempts;
-  uint8_t     m_safetysystemdiagnosticsession_number_of_attempts;
-  SeedSize    m_seed_size;
-  uint64_t    m_seed;
-  uint64_t    m_key;
+  Status        m_status;
+  SessionType   m_sessiontype;
+  uint8_t       m_sa_security_level_unlocked;
+  bool          m_sa_requestsequenceerror;
+  uint8_t       m_programmingsession_number_of_attempts;
+  uint8_t       m_extendeddiagnosticsession_number_of_attempts;
+  uint8_t       m_safetysystemdiagnosticsession_number_of_attempts;
+  SeedSize      m_seed_size;
+  uint64_t      m_seed;
+  uint64_t      m_key;
+  Program_timer m_s3_timer;
+  //Program_timer m_STmin_timer;
 };
 
 class UDSOnCAN : public UDS
@@ -64,7 +68,7 @@ public:
   void Execute();
   void MakePositiveResponse(const UDS_Frame::Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size);
   void MakeNegativeResponse(const UDS_Frame::Service a_rejected_sid, UDS_Frame::NegativeResponseCode a_nrc);
-  
+
   bool IsRXBufferOfUDSEmpty();
   bool IsTXBufferOfUDSEmpty();
   bool ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame);
@@ -76,7 +80,6 @@ public:
   bool CompareSecurityAccessKey(uint64_t a_key);
 
 private:
-
   void SendFlowControlFrame();
   void SetSeparationTime(uint8_t a_STmin);
   uint8_t GetSeparationTime() const;
