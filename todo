@@ -8,6 +8,8 @@ std::string          can source              can source
                       can id                  can id
                      data 1..8
 
+
+--in progress-- реализовать все проверки по 7.5!!!! перекинуть service to uds from uds frame
 --in progress-- добавить уровни доступа к сидам
 --in progress-- timers добавить таймеры между пакетами
 --in progress-- отработать режим сессии m_sessiontype in UDS
@@ -18,6 +20,8 @@ std::string          can source              can source
 -- need test -- security access levels 0x01 0x03 0x05
 -- need test -- restore number of attempts if successful
 -- need test -- действия при смене типа сессии: закрыть SA
+add wait for fcf
+add server is busy
 
    -- ok --     написать братьям китайцам по адаптеру
    -- ok --     SecurityAccess XTEA key

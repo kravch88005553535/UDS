@@ -31,30 +31,27 @@ UDS::Status UDS::GetUDSStatus()
 }
 void UDS::SetSessionType(const SessionType a_sessiontype)
 {
-  if(m_sessiontype == a_sessiontype)
-  {
-    if(m_sessiontype == DSC_Type_DefaultSession)
-    {
-      //reinitialize all session parameters
-      /*
-      The server shall reset all activated/initiated/changed
-      settings/controls during the activated session. This does not include long term changes programmed into non-volatile
-      memory.
-      Note that the locking of security access shall reset any active diagnostic functionality that
-      was dependent on security access to be unlocked (e.g., active inputOutputControl of a DID)
-      */
-      return;
-    }
-    else
-    {
-      //stop events configured via 0x86 service
-      //relock security access
+  // if(m_sessiontype == a_sessiontype)
+  // {
+  //   if(m_sessiontype == DSC_Type_DefaultSession)
+  //   {
+  //     //reinitialize all session parameters
+  //     /*
+  //     The server shall reset all activated/initiated/changed
+  //     settings/controls during the activated session. This does not include long term changes programmed into non-volatile
+  //     memory.
+  //     Note that the locking of security access shall reset any active diagnostic functionality that
+  //     was dependent on security access to be unlocked (e.g., active inputOutputControl of a DID)
+  //     */
+  //     return;
+  //   }
+  //   else
+  //   {
+  //     //stop events configured via 0x86 service
+  //     //relock security access
 
-      return;
-    }
-
-    
-  }
+  //     return;
+  // }
 
   if(m_sessiontype != DSC_Type_DefaultSession)
   {
@@ -106,6 +103,39 @@ void UDS::ReloadNumberOfSecurityAccessAttempts()
   m_extendeddiagnosticsession_number_of_attempts = 5;
   m_safetysystemdiagnosticsession_number_of_attempts = 5;
   m_sa_requestsequenceerror = true;
+}
+void UDS::SetCommunicationControl(CommunicationControl a_communication_control)
+{
+  switch (a_communication_control)
+  {
+    case CC_EnableRxEnableTx:
+      m_is_rx_enabled = true;
+      m_is_tx_enabled = true;
+    break;
+    
+    case CC_EnableRxDisableTx:
+      m_is_rx_enabled = true;
+      m_is_tx_enabled = false;
+    break;
+    
+    case CC_DisableRxEnableTx:
+      m_is_rx_enabled = false;
+      m_is_tx_enabled = true;
+    break;
+    
+    case CC_DisableRxDisableTx:
+      m_is_rx_enabled = false;
+      m_is_tx_enabled = false;
+    break;
+  }
+}
+bool UDS::IsECUTXEnabled()
+{
+  return m_is_tx_enabled;
+}
+bool UDS::IsECURXEnabled()
+{
+  return m_is_rx_enabled;
 }
 void UDS::CheckS3Timer()
 {
@@ -266,7 +296,6 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
 void UDSOnCAN::Execute()
 {
   CheckS3Timer();
-
   if(!m_uds_rx_buffer.empty())
   {
     UDS_Frame* uds_frame{m_uds_rx_buffer.front()};
@@ -278,24 +307,24 @@ void UDSOnCAN::Execute()
     UDS_Frame::Service sid{uds_frame->GetSID()};
     if(!uds_frame->IsFrameValid())
     {
-      MakeNegativeResponse(sid, UDS_Frame::NRC_ConditionsNotCorrect);
+      MakeNegativeResponse(sid, UDS::NRC_ConditionsNotCorrect);
       delete uds_frame;
     }
     switch(sid)
     {
-      UDS_Frame::NRC_ServiceNotSupportedInActiveSession
+      //UDS_Frame::NRC_ServiceNotSupportedInActiveSession
       case UDS_Frame::Service::DiagnosticSessionControl:
       {
         if(uds_frame->GetDataLength() > 1)
         {
-          MakeNegativeResponse(sid, UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
+          MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat);
           break;
         }
         
         uint8_t sessiontype{*(uds_frame->GetData())};
         if(sessiontype > DSC_Type_SafetySystemDiagnosticSession)
         {
-          MakeNegativeResponse(sid, UDS_Frame::NRC_Subfunctionnotsupported);
+          MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported);
           break;
         }
         // if() //check session change condition
@@ -314,8 +343,8 @@ void UDSOnCAN::Execute()
         response_data[2] = 0x32; //50ms
         response_data[3] = 0x01;
         response_data[4] = 0xF4; //5000ms
-        
         MakePositiveResponse(sid, &response_data[0], response_array_size);
+        delete [] response_data;
       }
       break;
 
@@ -326,7 +355,7 @@ void UDSOnCAN::Execute()
 
         if(secutityaccess_type > 0x06 || secutityaccess_type == 0x00)
         {
-          MakeNegativeResponse(sid, UDS_Frame::NRC_Subfunctionnotsupported);
+          MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported);
           break;
         }
         //check current diagnostic session
@@ -337,7 +366,7 @@ void UDSOnCAN::Execute()
         {
           if(uds_frame->GetDataLength() > subfunction_size)
           {
-            MakeNegativeResponse(sid, UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
+            MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat);
             break;
           }
           uint8_t* response_data{new uint8_t[subfunction_size+m_seed_size]};
@@ -363,17 +392,17 @@ void UDSOnCAN::Execute()
           const auto message_length{subfunction_size + m_seed_size};
           if(uds_frame->GetDataLength() > message_length)
           {
-            MakeNegativeResponse(sid, UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
+            MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat);
             break;
           }
           if(m_sa_requestsequenceerror)
           {
-            MakeNegativeResponse(sid, UDS_Frame::NRC_RequestSequenceError);
+            MakeNegativeResponse(sid, UDS::NRC_RequestSequenceError);
             break;
           }
           if(!CheckNumberOfSecurityAccessAttempts(secutityaccess_type))
           {
-            MakeNegativeResponse(sid, UDS_Frame::NRC_ExceededNumberOfAttempts);
+            MakeNegativeResponse(sid, UDS::NRC_ExceededNumberOfAttempts);
             break;
           }
           // if(!sa key delay required time timer)
@@ -401,13 +430,13 @@ void UDSOnCAN::Execute()
              */
           }
           else
-            MakeNegativeResponse(sid, UDS_Frame::NRC_InvalidKey); //start sa key delay required time timer
+            MakeNegativeResponse(sid, UDS::NRC_InvalidKey); //start sa key delay required time timer
 
           m_sa_requestsequenceerror = true;
         }
         else
         {
-          MakeNegativeResponse(sid, UDS_Frame::NRC_IncorrectMessageLengthOrInvalidFormat);
+          MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat);
           break;
         }
       }
@@ -415,6 +444,27 @@ void UDSOnCAN::Execute()
 
       case UDS_Frame::Service::CommunicationControl:
       {
+        auto data_length{uds_frame->GetDataLength()};
+        if(data_length == 0 or data_length > 4)
+        {
+          MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat);
+          break;
+        }
+        
+        const uint8_t* ptr{(uds_frame->GetData())};
+        const UDS::CommunicationControl communication_control{static_cast<UDS::CommunicationControl>(*ptr++)};
+        const UDS::CommunicationType communication_type{{static_cast<UDS::CommunicationType>(*ptr)}};
+
+        if(communication_control > UDS::CC_DisableRxDisableTx)
+        {
+          MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported);
+          break;
+        }
+        SetCommunicationControl(communication_control);
+
+        //add here communicationType , nodeIdentificationNumber (high byte), nodeIdentificationNumber (low byte) if necessary & edit condition of data length
+        constexpr auto respone_data_size{1};
+        MakePositiveResponse(uds_frame->GetSID(), (const uint8_t*)&communication_control, respone_data_size); // positive response allowed
       }
       break;
 
@@ -436,7 +486,7 @@ void UDSOnCAN::Execute()
           delete[] response_data;
         }
         else
-          MakeNegativeResponse(uds_frame->GetSID(), UDS_Frame::NRC_GeneralReject);
+          MakeNegativeResponse(uds_frame->GetSID(), UDS::NRC_GeneralReject);
       }
       break;
 
@@ -453,7 +503,7 @@ void UDSOnCAN::Execute()
           auto did_size{m_did_repository.GetDataIdentifierSize(did)};
           if(did_size < data_length)
           {
-            MakeNegativeResponse(sid, UDS_Frame::NRC_GeneralReject);//if size not compares make negative response
+            MakeNegativeResponse(sid, UDS::NRC_GeneralReject);//if size not compares make negative response
           }
           else
           {
@@ -470,7 +520,7 @@ void UDSOnCAN::Execute()
           }
         }
         else
-          MakeNegativeResponse(sid, UDS_Frame::NRC_GeneralReject);//if !found transmit negative response
+          MakeNegativeResponse(sid, UDS::NRC_GeneralReject);//if !found transmit negative response
       }
       break;
       
@@ -478,20 +528,17 @@ void UDSOnCAN::Execute()
       {
         const uint8_t sprmi{*(uds_frame->GetData())}; // SPRMI = SuppressPosResMsgIndication
         if(sprmi == 0x80)
-          //start s3 timer
           asm("nop");//no response transmission needed
         else if(sprmi == 0x00)
         {
-          //start s3 timer
           constexpr auto respone_data_size{1};
           MakePositiveResponse(uds_frame->GetSID(), &sprmi, respone_data_size); // positive response allowed
         }
-        asm("nop");
       }
       break;
 
       default:
-         asm("nop");
+        MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupported);
       break;
     }
     //get last uds instance
@@ -541,7 +588,7 @@ void UDSOnCAN::MakePositiveResponse(const UDS_Frame::Service a_sid, const uint8_
     m_status = Status_is_executing_rx_ff;
   }
 }
-void UDSOnCAN::MakeNegativeResponse(UDS_Frame::Service a_rejected_sid, UDS_Frame::NegativeResponseCode a_nrc)
+void UDSOnCAN::MakeNegativeResponse(UDS_Frame::Service a_rejected_sid, UDS::NegativeResponseCode a_nrc)
 {
   constexpr auto payload_size{2};
   UDS_Frame* negativeresponse_frame{new UDS_Frame};

@@ -1,5 +1,6 @@
 #include "application.h"
 #include "program_timer.h"
+//#include <chrono>
 
 Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx_can_id)
   //: mref_socket{*(new sock_unix{std::string("/tmp/can.sock"), std::string("CAN_SOCKET"), &m_rx_socket_queue, &m_tx_socket_queue})} ///tmp/uds.sock"
@@ -19,9 +20,8 @@ Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx
 
 Application::~Application()
 {
-if (close(m_socket) < 0) {
+  if (close(m_socket) < 0)
     std::cout << "CAN socket close error\n";
-}
 }
 
 bool Application::Execute()
@@ -50,6 +50,7 @@ bool Application::Execute()
 
   while (1)
   {
+    //std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() << std::endl;
     CheckSocketForNewRxData();
     if(!m_rx_can_deque.empty())
     {
