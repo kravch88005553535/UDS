@@ -12,6 +12,33 @@
 class UDS
 {
 public:
+  enum Service: uint8_t
+  {
+    //Diagnostic and Communications Management
+    Service_DiagnosticSessionControl        = 0x10,    Service_ECUReset                        = 0x10,
+    Service_SecurityAccess                  = 0x27,    Service_CommunicationControl            = 0x28,
+    Service_Authentication                  = 0x29,    Service_TesterPresent                   = 0x3E,
+    Service_AccessTimingParameter           = 0x83,    Service_SecuredDataTransmission         = 0x84,
+    Service_ControlDTCSetting               = 0x85,    Service_ResponseOnEvent                 = 0x86,
+    Service_LinkControl                     = 0x87,
+    /*--------------------------Data Transmission--------------------------*/
+    Service_ReadDataByIdentifier            = 0x22,    Service_ReadMemoryByAddress             = 0x23,
+    Service_ReadScalingDataByIdentifier     = 0x24,    Service_ReadDataByPeriodicIdentifier    = 0x2A,
+    Service_DynamicallyDefineDataIdentifier = 0x2C,    Service_WriteDataByIdentifier           = 0x2E,
+    Service_WriteMemoryByAddress            = 0x3D,
+    /*-----------------------Stored Data Transmission----------------------*/
+    Service_ClearDiagnosticUInformation     = 0x14,    Service_ReadDTCInformation              = 0x19,
+    /*------------------------Input/output control-------------------------*/
+    Service_InputOutputControlByIdentifier  = 0x2F,
+    /*--------------------Remote Activation of Routine---------------------*/
+    Service_RoutineControl                  = 0x31,
+    /*--------------------------Upload / Download--------------------------*/
+    Service_RequestDownload                 = 0x34,    Service_RequestUpload                   = 0x35,
+    Service_TransferData                    = 0x36,    Service_RequestTransferExit             = 0x37,
+    Service_RequestFileTransfer             = 0x38,
+    /*--------------------------Negative response--------------------------*/
+    Service_NegativeResponse                = 0x7F
+  };
   enum NegativeResponseCode: uint8_t
   {
     NRC_GeneralReject                                   = 0x10,
@@ -82,11 +109,11 @@ public:
   };
   enum SeedSize
   {
-    Seed_size_1_byte = 1,
-    Seed_size_2_byte = 2,
-    Seed_size_3_byte = 3,
-    Seed_size_4_byte = 4,
-    Seed_size_5_byte = 5
+    Seedsize_1_byte = 1,
+    Seedsize_2_byte = 2,
+    Seedsize_3_byte = 3,
+    Seedsize_4_byte = 4,
+    Seedsize_5_byte = 5
   };
   enum SessionType
   {
@@ -153,8 +180,8 @@ public:
   ~UDSOnCAN();
   
   void Execute();
-  void MakePositiveResponse(const UDS_Frame::Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size);
-  void MakeNegativeResponse(const UDS_Frame::Service a_rejected_sid, UDS::NegativeResponseCode a_nrc);
+  void MakePositiveResponse(const Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size);
+  void MakeNegativeResponse(const Service a_rejected_sid, UDS::NegativeResponseCode a_nrc);
 
   bool IsRXBufferOfUDSEmpty();
   bool IsTXBufferOfUDSEmpty();

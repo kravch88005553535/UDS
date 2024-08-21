@@ -44,12 +44,12 @@ uint16_t UDS_Frame::GetDataLength()
   return m_data_length;
 }
 
-void UDS_Frame::SetSID(const Service a_service_id)
+void UDS_Frame::SetSID(const uint8_t a_service_id)
 {
   m_sid = a_service_id;
 }
 
-UDS_Frame::Service UDS_Frame::GetSID()
+uint8_t UDS_Frame::GetSID()
 {
   return m_sid;
 }

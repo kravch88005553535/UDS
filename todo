@@ -1,14 +1,3 @@
-number of sa remaining ()
-number of try s in security access (every diagnostic mode)
-in Exceeded Number of Attempts (0x36) and Required Time Delay Not Expired (0x37)
-
-Socket     <---->    can frame     <---->    uds frame
---------------------------------------------------------
-std::string          can source              can source
-                      can id                  can id
-                     data 1..8
-
-
 --in progress-- реализовать все проверки по 7.5!!!! перекинуть service to uds from uds frame
 --in progress-- добавить уровни доступа к сидам
 --in progress-- timers добавить таймеры между пакетами
@@ -22,6 +11,8 @@ std::string          can source              can source
 -- need test -- действия при смене типа сессии: закрыть SA
 add wait for fcf
 add server is busy
+add sprmib check
+add sa time delay(Required Time Delay Not Expired (0x37)) & check in Exceeded Number of Attempts (0x36)
 
    -- ok --     написать братьям китайцам по адаптеру
    -- ok --     SecurityAccess XTEA key

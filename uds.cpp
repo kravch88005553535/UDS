@@ -13,7 +13,7 @@ UDS::UDS()
   , m_programmingsession_number_of_attempts{5}
   , m_extendeddiagnosticsession_number_of_attempts{5}
   , m_safetysystemdiagnosticsession_number_of_attempts{5}
-  , m_seed_size{Seed_size_4_byte}
+  , m_seed_size{Seedsize_4_byte}
   , m_seed{0}
   , m_key{0}
   , m_s3_timer{Program_timer::Type_one_pulse}
@@ -191,7 +191,6 @@ UDSOnCAN::UDSOnCAN()
     }
 }
 UDSOnCAN::~UDSOnCAN(){}
-
 bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
 {
   static UDS_Frame static_uds_frame{};
@@ -208,7 +207,7 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
       UDS_Frame* rx_frame{new UDS_Frame};
       const uint8_t payload {uint8_t(ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0x0F)};
       rx_frame->SetProtocolInformation(pci);
-      rx_frame->SetSID(static_cast<UDS_Frame::Service>(ap_can_frame->GetData(CAN_Frame::DataPos_1)));
+      rx_frame->SetSID(static_cast<UDS::Service>(ap_can_frame->GetData(CAN_Frame::DataPos_1)));
       rx_frame->SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_2), payload-1, 0);
       rx_frame->SetDataLength(payload-1);
 
@@ -223,7 +222,7 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
       //static_uds_frame.SetSource(ap_can_frame->GetSource());
       cf_data_remaining = (ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0x0F) << 4 || ap_can_frame->GetData(CAN_Frame::DataPos_1);
       static_uds_frame.SetDataLength(cf_data_remaining);
-      static_uds_frame.SetSID(static_cast<UDS_Frame::Service>(ap_can_frame->GetData(CAN_Frame::DataPos_1)));
+      static_uds_frame.SetSID(static_cast<UDS::Service>(ap_can_frame->GetData(CAN_Frame::DataPos_1)));
       static_uds_frame.SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_2), ff_data_size, 0);
       static_uds_frame.SetframeValidity(true);
       cf_data_remaining -= ff_data_size;
@@ -304,7 +303,7 @@ void UDSOnCAN::Execute()
     if(m_s3_timer.IsStarted())
       m_s3_timer.Reload();
 
-    UDS_Frame::Service sid{uds_frame->GetSID()};
+    UDS::Service sid{uds_frame->GetSID()};
     if(!uds_frame->IsFrameValid())
     {
       MakeNegativeResponse(sid, UDS::NRC_ConditionsNotCorrect);
@@ -313,7 +312,7 @@ void UDSOnCAN::Execute()
     switch(sid)
     {
       //UDS_Frame::NRC_ServiceNotSupportedInActiveSession
-      case UDS_Frame::Service::DiagnosticSessionControl:
+      case UDS::Service_DiagnosticSessionControl:
       {
         if(uds_frame->GetDataLength() > 1)
         {
@@ -348,7 +347,7 @@ void UDSOnCAN::Execute()
       }
       break;
 
-      case UDS_Frame::Service::SecurityAccess:
+      case UDS::Service_SecurityAccess:
       {
         constexpr auto subfunction_size{1};
         const uint8_t secutityaccess_type{*(uds_frame->GetData())};
@@ -442,7 +441,7 @@ void UDSOnCAN::Execute()
       }
       break;
 
-      case UDS_Frame::Service::CommunicationControl:
+      case UDS::Service_CommunicationControl:
       {
         auto data_length{uds_frame->GetDataLength()};
         if(data_length == 0 or data_length > 4)
@@ -453,7 +452,7 @@ void UDSOnCAN::Execute()
         
         const uint8_t* ptr{(uds_frame->GetData())};
         const UDS::CommunicationControl communication_control{static_cast<UDS::CommunicationControl>(*ptr++)};
-        const UDS::CommunicationType communication_type{{static_cast<UDS::CommunicationType>(*ptr)}};
+        const UDS::CommunicationType communication_type{static_cast<UDS::CommunicationType>(*ptr)};
 
         if(communication_control > UDS::CC_DisableRxDisableTx)
         {
@@ -464,11 +463,11 @@ void UDSOnCAN::Execute()
 
         //add here communicationType , nodeIdentificationNumber (high byte), nodeIdentificationNumber (low byte) if necessary & edit condition of data length
         constexpr auto respone_data_size{1};
-        MakePositiveResponse(uds_frame->GetSID(), (const uint8_t*)&communication_control, respone_data_size); // positive response allowed
+        MakePositiveResponse(sid, (const uint8_t*)&communication_control, respone_data_size); // positive response allowed
       }
       break;
 
-      case UDS_Frame::Service::ReadDataByIdentifier:
+      case UDS::Service_ReadDataByIdentifier:
       {
         const uint8_t* ptr{uds_frame->GetData()};
         const DID did {static_cast<DID>((*ptr << 8) | (*(++ptr)))};
@@ -482,15 +481,15 @@ void UDSOnCAN::Execute()
           response_data[1] = did & 0xFF;
           //fill did data
           m_did_repository.ReadDataIdentifier(did, &response_data[2], did_size);
-          MakePositiveResponse(uds_frame->GetSID(),response_data, total_data_size);
+          MakePositiveResponse(sid,response_data, total_data_size);
           delete[] response_data;
         }
         else
-          MakeNegativeResponse(uds_frame->GetSID(), UDS::NRC_GeneralReject);
+          MakeNegativeResponse(sid, UDS::NRC_GeneralReject);
       }
       break;
 
-      case UDS_Frame::Service::WriteDataByIdentifier:
+      case UDS::Service_WriteDataByIdentifier:
       {
         const uint8_t* ptr{uds_frame->GetData()};
         auto data_length{uds_frame->GetDataLength()};
@@ -524,7 +523,7 @@ void UDSOnCAN::Execute()
       }
       break;
       
-      case UDS_Frame::Service::TesterPresent:
+      case UDS::Service_TesterPresent:
       {
         const uint8_t sprmi{*(uds_frame->GetData())}; // SPRMI = SuppressPosResMsgIndication
         if(sprmi == 0x80)
@@ -532,7 +531,7 @@ void UDSOnCAN::Execute()
         else if(sprmi == 0x00)
         {
           constexpr auto respone_data_size{1};
-          MakePositiveResponse(uds_frame->GetSID(), &sprmi, respone_data_size); // positive response allowed
+          MakePositiveResponse(sid, &sprmi, respone_data_size); // positive response allowed
         }
       }
       break;
@@ -547,7 +546,7 @@ void UDSOnCAN::Execute()
      delete uds_frame;
   }
 }
-void UDSOnCAN::MakePositiveResponse(const UDS_Frame::Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size)
+void UDSOnCAN::MakePositiveResponse(const UDS::Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size)
 {
   // if(a_sid == flowcontrol)
   // {
@@ -561,7 +560,7 @@ void UDSOnCAN::MakePositiveResponse(const UDS_Frame::Service a_sid, const uint8_
   if(a_data_size <= 6)
   {
     UDS_Frame* single_frame{new UDS_Frame};
-    single_frame->SetSID(static_cast<UDS_Frame::Service>(a_sid + 0x40));
+    single_frame->SetSID(static_cast<UDS::Service>(a_sid + 0x40));
     single_frame->SetDataLength(a_data_size);
     single_frame->SetProtocolInformation(UDS_Frame::PCI_SingleFrame);
     single_frame->SetData(a_data_ptr,a_data_size,0);
@@ -571,7 +570,7 @@ void UDSOnCAN::MakePositiveResponse(const UDS_Frame::Service a_sid, const uint8_
   {
     UDS_Frame* first_frame{new UDS_Frame};
     uint32_t ff_data_size{5};
-    first_frame->SetSID(static_cast<UDS_Frame::Service>(a_sid + 0x40));
+    first_frame->SetSID(static_cast<UDS::Service>(a_sid + 0x40));
     first_frame->SetDataLength(a_data_size);
     first_frame->SetProtocolInformation(UDS_Frame::PCI_FirstFrame);
     first_frame->SetData(a_data_ptr,ff_data_size,0);
@@ -588,12 +587,12 @@ void UDSOnCAN::MakePositiveResponse(const UDS_Frame::Service a_sid, const uint8_
     m_status = Status_is_executing_rx_ff;
   }
 }
-void UDSOnCAN::MakeNegativeResponse(UDS_Frame::Service a_rejected_sid, UDS::NegativeResponseCode a_nrc)
+void UDSOnCAN::MakeNegativeResponse(UDS::Service a_rejected_sid, UDS::NegativeResponseCode a_nrc)
 {
   constexpr auto payload_size{2};
   UDS_Frame* negativeresponse_frame{new UDS_Frame};
   negativeresponse_frame->SetProtocolInformation(UDS_Frame::PCI_SingleFrame);
-  negativeresponse_frame->SetSID(UDS_Frame::Service::NegativeResponse);
+  negativeresponse_frame->SetSID(UDS::Service_NegativeResponse);
   negativeresponse_frame->SetDataLength(payload_size);
   uint8_t* data{new uint8_t[payload_size]};
   data[0] = (uint8_t)a_rejected_sid;
@@ -717,7 +716,6 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
   delete uds_frame;
   return frames;
 }
-
 bool UDSOnCAN::IsRXBufferOfUDSEmpty()
 {
   return !(bool)m_uds_rx_buffer.size();
