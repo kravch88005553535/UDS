@@ -234,7 +234,7 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
       rx_frame->SetSID(static_cast<UDS::Service>(ap_can_frame->GetData(CAN_Frame::DataPos_1)));
       rx_frame->SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_2), payload-1, 0);
       rx_frame->SetDataLength(payload-1);
-
+      rx_frame->SetSource(ap_can_frame->GetSource());
       m_uds_rx_buffer.push_back(rx_frame);
       return true;  
     }
@@ -249,6 +249,7 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
       static_uds_frame.SetSID(static_cast<UDS::Service>(ap_can_frame->GetData(CAN_Frame::DataPos_1)));
       static_uds_frame.SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_2), ff_data_size, 0);
       static_uds_frame.SetframeValidity(true);
+      static_uds_frame.SetSource(ap_can_frame->GetSource());
       cf_data_remaining -= ff_data_size;
       
       next_consecutive_frame_index = 1;
@@ -297,6 +298,7 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
     //SET FLOWSTATUS
     //SET BLOCKSIZE
     //SET STMIN
+    //SET SOURCE
     // IN REQUEST EXECURE ALL THIS PARAMETERS
 
 
@@ -304,7 +306,6 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
     // byte 2 is block size
     // byte 3 is ST_min (Separation Time minimum)
     // bytes 4..8 are not N/A
-    
       m_status = Status_ok;
     break;
 
@@ -328,9 +329,10 @@ void UDSOnCAN::Execute()
       m_s3_timer.Reload();
 
     UDS::Service sid{uds_frame->GetSID()};
+    CAN_Frame::Source source{uds_frame->GetSource()};
     if(!uds_frame->IsFrameValid())
     {
-      MakeNegativeResponse(sid, UDS::NRC_ConditionsNotCorrect);
+      MakeNegativeResponse(sid, UDS::NRC_ConditionsNotCorrect, source);
       delete uds_frame;
     }
     switch(sid)
@@ -340,14 +342,14 @@ void UDSOnCAN::Execute()
       {
         if(uds_frame->GetDataLength() > 1)
         {
-          MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat);
+          MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat, source);
           break;
         }
         
         uint8_t sessiontype{*(uds_frame->GetData())};
         if(sessiontype > DSC_Type_SafetySystemDiagnosticSession)
         {
-          MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported);
+          MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported, source);
           break;
         }
         // if() //check session change condition
@@ -366,7 +368,7 @@ void UDSOnCAN::Execute()
         response_data[2] = 0x32; //50ms
         response_data[3] = 0x01;
         response_data[4] = 0xF4; //5000ms
-        MakePositiveResponse(sid, &response_data[0], response_array_size);
+        MakePositiveResponse(sid, &response_data[0], response_array_size, source);
         delete [] response_data;
       }
       break;
@@ -378,7 +380,7 @@ void UDSOnCAN::Execute()
 
         if(secutityaccess_type > 0x06 || secutityaccess_type == 0x00)
         {
-          MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported);
+          MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported, source);
           break;
         }
         //check current diagnostic session
@@ -389,7 +391,7 @@ void UDSOnCAN::Execute()
         {
           if(uds_frame->GetDataLength() > subfunction_size)
           {
-            MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat);
+            MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat, source);
             break;
           }
           uint8_t* response_data{new uint8_t[subfunction_size+m_seed_size]};
@@ -406,7 +408,7 @@ void UDSOnCAN::Execute()
             for (auto i{0}; i < m_seed_size; ++i)
               response_data[m_seed_size-i] = *((uint8_t*)&m_seed+i);
           }
-          MakePositiveResponse(sid, response_data, subfunction_size+m_seed_size);
+          MakePositiveResponse(sid, response_data, subfunction_size+m_seed_size, source);
           delete[] response_data;
           m_sa_requestsequenceerror = false;
         }
@@ -415,17 +417,17 @@ void UDSOnCAN::Execute()
           const auto message_length{subfunction_size + m_seed_size};
           if(uds_frame->GetDataLength() > message_length)
           {
-            MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat);
+            MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat, source);
             break;
           }
           if(m_sa_requestsequenceerror)
           {
-            MakeNegativeResponse(sid, UDS::NRC_RequestSequenceError);
+            MakeNegativeResponse(sid, UDS::NRC_RequestSequenceError, source);
             break;
           }
           if(!CheckNumberOfSecurityAccessAttempts(secutityaccess_type))
           {
-            MakeNegativeResponse(sid, UDS::NRC_ExceededNumberOfAttempts);
+            MakeNegativeResponse(sid, UDS::NRC_ExceededNumberOfAttempts, source);
             break;
           }
           // if(!sa key delay required time timer)
@@ -444,7 +446,7 @@ void UDSOnCAN::Execute()
             m_sa_security_level_unlocked = secutityaccess_type - 1;
             uint8_t* response_data{new uint8_t[subfunction_size]};
             response_data[0] = secutityaccess_type;
-            MakePositiveResponse(sid, response_data, subfunction_size);
+            MakePositiveResponse(sid, response_data, subfunction_size, source);
             delete[] response_data;
             /*
              *  In case the server supports this delay timer then after a successful
@@ -453,13 +455,13 @@ void UDSOnCAN::Execute()
              */
           }
           else
-            MakeNegativeResponse(sid, UDS::NRC_InvalidKey); //start sa key delay required time timer
+            MakeNegativeResponse(sid, UDS::NRC_InvalidKey, source); //start sa key delay required time timer
 
           m_sa_requestsequenceerror = true;
         }
         else
         {
-          MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat);
+          MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat, source);
           break;
         }
       }
@@ -470,7 +472,7 @@ void UDSOnCAN::Execute()
         auto data_length{uds_frame->GetDataLength()};
         if(data_length == 0 or data_length > 4)
         {
-          MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat);
+          MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat, source);
           break;
         }
         
@@ -480,14 +482,14 @@ void UDSOnCAN::Execute()
 
         if(communication_control > UDS::CC_DisableRxDisableTx)
         {
-          MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported);
+          MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported, source);
           break;
         }
         SetCommunicationControl(communication_control);
 
         //add here communicationType , nodeIdentificationNumber (high byte), nodeIdentificationNumber (low byte) if necessary & edit condition of data length
         constexpr auto respone_data_size{1};
-        MakePositiveResponse(sid, (const uint8_t*)&communication_control, respone_data_size); // positive response allowed
+        MakePositiveResponse(sid, (const uint8_t*)&communication_control, respone_data_size, source); // positive response allowed
       }
       break;
 
@@ -505,11 +507,11 @@ void UDSOnCAN::Execute()
           response_data[1] = did & 0xFF;
           //fill did data
           m_did_repository.ReadDataIdentifier(did, &response_data[2], did_size);
-          MakePositiveResponse(sid,response_data, total_data_size);
+          MakePositiveResponse(sid,response_data, total_data_size, source);
           delete[] response_data;
         }
         else
-          MakeNegativeResponse(sid, UDS::NRC_GeneralReject);
+          MakeNegativeResponse(sid, UDS::NRC_GeneralReject, source);
       }
       break;
 
@@ -526,7 +528,7 @@ void UDSOnCAN::Execute()
           auto did_size{m_did_repository.GetDataIdentifierSize(did)};
           if(did_size < data_length)
           {
-            MakeNegativeResponse(sid, UDS::NRC_GeneralReject);//if size not compares make negative response
+            MakeNegativeResponse(sid, UDS::NRC_GeneralReject, source);//if size not compares make negative response
           }
           else
           {
@@ -538,12 +540,12 @@ void UDSOnCAN::Execute()
             uint8_t* response_data{new uint8_t[total_data_size]};
             response_data[0] = (did & 0xFF00) >> 8;
             response_data[1] = did & 0xFF;
-            MakePositiveResponse(sid,response_data, total_data_size);
+            MakePositiveResponse(sid,response_data, total_data_size, source);
             delete[] response_data;
           }
         }
         else
-          MakeNegativeResponse(sid, UDS::NRC_GeneralReject);//if !found transmit negative response
+          MakeNegativeResponse(sid, UDS::NRC_GeneralReject, source);//if !found transmit negative response
       }
       break;
       
@@ -555,13 +557,13 @@ void UDSOnCAN::Execute()
         else if(sprmi == 0x00)
         {
           constexpr auto respone_data_size{1};
-          MakePositiveResponse(sid, &sprmi, respone_data_size); // positive response allowed
+          MakePositiveResponse(sid, &sprmi, respone_data_size, source); // positive response allowed
         }
       }
       break;
 
       default:
-        MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupported);
+        MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupported, source);
       break;
     }
     //get last uds instance
@@ -570,7 +572,7 @@ void UDSOnCAN::Execute()
      delete uds_frame;
   }
 }
-void UDSOnCAN::MakePositiveResponse(const UDS::Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size)
+void UDSOnCAN::MakePositiveResponse(const UDS::Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size, const CAN_Frame::Source a_source)
 {
   // if(a_sid == flowcontrol)
   // {
@@ -578,6 +580,7 @@ void UDSOnCAN::MakePositiveResponse(const UDS::Service a_sid, const uint8_t* a_d
   //   flowcontrolframe->SetSID(static_cast<UDS_Frame::Service>(a_sid + 0x40));
   //   flowcontrolframe->SetDataLength();
   //   flowcontrolframe->SetProtocolInformation(UDS_Frame::PCI_FlowControlFrame;
+  //   flowcontrolframe->->SetSource(a_source);
   //   m_uds_tx_buffer.push_back(flowcontrolframe);
   // }
   // else
@@ -588,6 +591,7 @@ void UDSOnCAN::MakePositiveResponse(const UDS::Service a_sid, const uint8_t* a_d
     single_frame->SetDataLength(a_data_size);
     single_frame->SetProtocolInformation(UDS_Frame::PCI_SingleFrame);
     single_frame->SetData(a_data_ptr,a_data_size,0);
+    single_frame->SetSource(a_source);
     m_uds_tx_buffer.push_back(single_frame);
   }
   else
@@ -598,6 +602,7 @@ void UDSOnCAN::MakePositiveResponse(const UDS::Service a_sid, const uint8_t* a_d
     first_frame->SetDataLength(a_data_size);
     first_frame->SetProtocolInformation(UDS_Frame::PCI_FirstFrame);
     first_frame->SetData(a_data_ptr,ff_data_size,0);
+    first_frame->SetSource(a_source);
     m_uds_tx_buffer.push_back(first_frame);
 
     a_data_ptr += ff_data_size;
@@ -606,12 +611,13 @@ void UDSOnCAN::MakePositiveResponse(const UDS::Service a_sid, const uint8_t* a_d
     consecutive_frames->SetDataLength(cf_data_size);
     consecutive_frames->SetProtocolInformation(UDS_Frame::PCI_ConsecutiveFrame);
     consecutive_frames->SetData(a_data_ptr,cf_data_size,0);
+    consecutive_frames->SetSource(a_source);
     m_uds_tx_buffer.push_back(consecutive_frames);
 
     m_status = Status_is_executing_rx_ff;
   }
 }
-void UDSOnCAN::MakeNegativeResponse(UDS::Service a_rejected_sid, UDS::NegativeResponseCode a_nrc)
+void UDSOnCAN::MakeNegativeResponse(UDS::Service a_rejected_sid, UDS::NegativeResponseCode a_nrc, const CAN_Frame::Source a_source)
 {
   constexpr auto payload_size{2};
   UDS_Frame* negativeresponse_frame{new UDS_Frame};
@@ -622,6 +628,7 @@ void UDSOnCAN::MakeNegativeResponse(UDS::Service a_rejected_sid, UDS::NegativeRe
   data[0] = (uint8_t)a_rejected_sid;
   data[1] = (uint8_t)a_nrc;
   negativeresponse_frame->SetData(data, payload_size, 0);
+  negativeresponse_frame->SetSource(a_source);
   m_uds_tx_buffer.push_back(negativeresponse_frame); //or push front
   delete[] data;
 }
@@ -653,6 +660,7 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
         data_pos = static_cast<CAN_Frame::DataPos>(data_pos + 1);
         data++;
       }
+      tx_frame->SetSource(uds_frame->GetSource());
       frames.push_back(tx_frame);
       tx_frame = nullptr;
     }
@@ -679,6 +687,7 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
       //check for ff_cf_remaining_data_bytes > data_bytes_total_in_ff
       ff_cf_remaining_data_bytes -= data_bytes_total_in_ff;
     }
+      tx_frame->SetSource(uds_frame->GetSource());
       frames.push_back(tx_frame);
       tx_frame = nullptr;
     break;
@@ -715,6 +724,7 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
           tx_frame->SetData(data_pos, *data++);
           data_pos = static_cast<CAN_Frame::DataPos>(data_pos + 1);
         }
+        tx_frame->SetSource(uds_frame->GetSource());
         frames.push_back(tx_frame);
         tx_frame = nullptr;
       }
@@ -729,6 +739,7 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
       tx_frame->SetData(CAN_Frame::DataPos_0, pci_shifted | fcf_flag);
       tx_frame->SetData(CAN_Frame::DataPos_1, m_BS_this_device);
       tx_frame->SetData(CAN_Frame::DataPos_2, m_STmin_this_device);
+      tx_frame->SetSource(uds_frame->GetSource());
       frames.push_back(tx_frame);
       tx_frame = nullptr;
     }
@@ -769,11 +780,11 @@ void UDSOnCAN::GenerateAndUpdateSecurityAccessSeed(UDS::SeedSize a_seed_size)
   } while (seed == 0);
   
   m_seed = seed;
-  std::cout << std::hex << "seed: "<< m_seed << '\n';
+  // std::cout << std::hex << "seed: "<< m_seed << '\n';
   
   CalculateSecurityAccessFullKey();
   m_key = m_key & bitmask;
-  std::cout << std::hex << "key: "<< m_key << '\n';
+  // std::cout << std::hex << "key: "<< m_key << '\n';
 }
 void UDSOnCAN::CalculateSecurityAccessFullKey()
 {
@@ -799,7 +810,7 @@ void UDSOnCAN::CalculateSecurityAccessFullKey()
   }
   v[0]=v0; v[1]=v1;
 
-  std::cout << "calculated sa full key: " << std::hex << temp_seed << '\n';
+  //std::cout << "calculated sa full key: " << std::hex << temp_seed << '\n';
   
   m_key = temp_seed;
   delete[] k;

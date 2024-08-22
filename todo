@@ -1,5 +1,6 @@
 перепилить stmin клиент сервер
-
+//can_frame::source in uds
+//move sa key from udsoncan to uds
 --in progress-- реализовать все проверки по 7.5!!!! перекинуть service to uds from uds frame
 --in progress-- добавить уровни доступа к сидам
 --in progress-- timers добавить таймеры между пакетами

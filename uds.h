@@ -189,8 +189,8 @@ public:
   ~UDSOnCAN();
   
   void Execute();
-  void MakePositiveResponse(const Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size);
-  void MakeNegativeResponse(const Service a_rejected_sid, UDS::NegativeResponseCode a_nrc);
+  void MakePositiveResponse(const Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size, const CAN_Frame::Source a_source);
+  void MakeNegativeResponse(const Service a_rejected_sid, UDS::NegativeResponseCode a_nrc, const CAN_Frame::Source a_source);
 
   bool IsRXBufferOfUDSEmpty();
   bool IsTXBufferOfUDSEmpty();

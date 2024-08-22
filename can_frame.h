@@ -35,7 +35,7 @@ public:
   const uint8_t* GetDataPtr() const;
   const uint8_t* GetDataPtr(const DataPos datapos) const;
   void     SetSource(const Source a_source);
-  Source   GetSource();
+  Source   GetSource() const;
   void     Fill(const uint8_t a_fill_with);
 private:
   uint32_t  m_id;

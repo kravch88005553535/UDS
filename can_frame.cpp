@@ -55,7 +55,7 @@ void CAN_Frame::SetSource(const Source a_source)
   m_source = a_source;
 }
 
-CAN_Frame::Source CAN_Frame::GetSource()
+CAN_Frame::Source CAN_Frame::GetSource() const
 {
   return m_source;
 }

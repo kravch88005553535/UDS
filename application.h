@@ -42,8 +42,7 @@ private:
 
   int            m_socket;
   sockaddr_un    m_addr;
-  ifreq          m_ifr;
-  can_frame      m_frame;
+//  ifreq          m_ifr;
 
   UDSOnCAN&      mref_uds;
   const uint32_t m_ecu_rx_can_id;

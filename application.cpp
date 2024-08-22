@@ -1,3 +1,4 @@
+#include <sstream>
 #include "application.h"
 #include "program_timer.h"
 
@@ -11,8 +12,6 @@ Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx
   , m_tx_can_deque{}
   , m_socket{}
   , m_addr{}
-  , m_ifr{}
-  , m_frame{}
 {
 }
 
@@ -88,40 +87,13 @@ bool Application::Execute()
 
 void Application::CheckSocketForNewRxData()
 {  
-// sudo slcand -o -c -s5 /dev/ttyACM0 can0
-// sudo ifconfig can0 up
-  // volatile int nbytes;
-  // socklen_t  len = sizeof(m_addr);
-  // nbytes = recvfrom(m_socket, &m_frame, sizeof(can_frame),
-  //                   0, (struct sockaddr*)&m_addr, &len);
-
-  // if (nbytes < 0) {
-  //     //perror("Read");
-  //     return;
-  // }
-
-  // if(m_frame.can_id == m_ecu_rx_can_id)
-  // {
-  //   //std::cout << "CAN ID HIT!" << '\n';
-  //   printf("RX: 0x%03X [%d] ",m_frame.can_id, 
-  //   m_frame.can_dlc);
-  //   for (auto i = 0; i < m_frame.can_dlc; i++)
-  //       printf("%02X ",m_frame.data[i]);
-  //   printf("\r\n");
-
-  //   auto source {CAN_Frame::Source_CAN1};
-  //   auto rx_can_id {m_frame.can_id};
-  //   CAN_Frame* p_frame{new CAN_Frame(source, rx_can_id, &m_frame.data[0])};
-  //   m_rx_can_deque.push_back(p_frame); 
-  // }
-
   static std::string recieved_data{};
   char string[100];
   auto t{recv(m_socket, string, 100, 0)};
   if (t > 0) {
     recieved_data.append(string);
       string[t] = '\0';
-      printf("echo> %s", string);
+      printf("RX>%s", string);
   } else {
       if (t < 0) perror("recv");
       else printf("Server closed connection\n");
@@ -169,20 +141,16 @@ void Application::CheckSocketForNewRxData()
     uint8_t length{recieved_data_substring.length()};
     constexpr auto min_substring_size{3};
     constexpr auto max_substring_size{23};
-    std::cout << recieved_data_substring << std::endl;
+    
     if(length >= min_substring_size and length <= max_substring_size)
     {
       const char* substring{recieved_data_substring.c_str()};
       for(auto i{0}; i < length; i+=3)
       {
-        if(substring[i] == '\n')
-          break;
-        
         std::string byte{"0x"};
         byte.append(recieved_data_substring.substr(i,2));
-        std::cout << byte << std::endl;
-        can_data[i] = std::stoul(byte, nullptr, 16);\
-        std::cout << "byte " << (int)i/3+1 << ":" << can_data[i] << std::endl;
+        auto index{i/3};
+        can_data[index] = std::stoul(byte, nullptr, 16);
       }
     }
     else is_frame_valid = false;
@@ -193,7 +161,6 @@ void Application::CheckSocketForNewRxData()
       m_rx_can_deque.push_back(p_frame);   
     }
   }
-  std::cout << m_rx_socket_queue.size() << std::endl;
 }
 void Application::TransmitCanFrameToSocket()
 {
@@ -201,25 +168,40 @@ void Application::TransmitCanFrameToSocket()
     return;
 
   volatile int nbytes;
-
   CAN_Frame* can_frame = m_tx_can_deque.front();
   can_frame->SetID(m_ecu_tx_can_id); //set ECU ID to frame
-  m_frame.can_id = can_frame->GetID();
 
-  // for (auto i = 0; i < 8; ++i)
-  //   m_frame.data[i] = can_frame->GetData(static_cast<CAN_Frame::DataPos>(i));
-
-  // nbytes = write(m_socket, &m_frame, sizeof(m_frame));
-
-  // printf("TX: 0x%03X [%d] ",m_frame.can_id, m_frame.can_dlc);
-  // for (auto i = 0; i < m_frame.can_dlc; i++)
-  //     printf("%02X ",m_frame.data[i]);
-  // printf("\r\n");
+  std::string transmit_data{};
+  uint32_t source{static_cast<uint32_t>(can_frame->GetSource())};// источник 1 байт  CAN1..3
+  std::stringstream stringstream;
   
-    // if (send(m_socket, str, strlen(str), 0) == -1) {
-    //   perror("send");
-    //   exit(1);
-    // }
+  stringstream << std::hex << source << "#";
+
+  uint32_t tx_can_id{can_frame->GetID()};
+
+  stringstream << std::hex << tx_can_id << "#";
+  constexpr auto can_frame_data_size{8};
+  for(auto i{0}; i < can_frame_data_size; ++i)
+  {
+    CAN_Frame::DataPos datapos{static_cast<CAN_Frame::DataPos>(i)};
+    uint32_t data{can_frame->GetData(datapos)};
+    if(data < 0x10)
+      stringstream << "0";
+
+    stringstream << std::hex << data;
+    if(datapos != CAN_Frame::DataPos_7)
+      stringstream << ".";
+  }
+  
+  transmit_data.append(stringstream.str());
+  std::cout << "TX<";
+  std::cout << transmit_data << "\n\n";
+  auto string_length{strlen(transmit_data.c_str())+1};
+  //const char * strf 
+  if (send(m_socket, (transmit_data +'\n').c_str(), string_length, 0) == -1) {
+    perror("send");
+    exit(1);
+  }
   
   m_tx_can_deque.pop_front(); 
 }
