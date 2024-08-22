@@ -16,10 +16,13 @@ UDS::UDS()
   , m_seed_size{Seedsize_4_byte}
   , m_seed{0}
   , m_key{0}
+  , m_p2_timer{Program_timer::Type_one_pulse}
   , m_s3_timer{Program_timer::Type_one_pulse}
+  , m_STmin_timer{Program_timer::Type_one_pulse}
 {
   m_s3_timer.SetInterval_sec(5);
-  //start all timers
+  m_p2_timer.SetInterval_ms(50);
+  m_STmin_timer.SetInterval_ms(20);
 }
 void UDS::SetUDSStatus(const Status a_status)
 {
@@ -141,6 +144,27 @@ void UDS::CheckS3Timer()
 {
   if(m_sessiontype != DSC_Type_DefaultSession and m_s3_timer.Check())
     SetSessionType(DSC_Type_DefaultSession);
+}
+void UDS::SetSeparationTime(uint8_t a_STmin)
+{
+  // STmin values:
+  //       0x00-0x7F - Separation Time minimum range 0-127 ms
+  //       0x80-0xF0 - Reserved
+  //       0xF1-0xF9 - Separation Time minimum range 100-900 μs
+  //       0xFA-0xFF - Reserved
+  if(a_STmin >= 0xF1 and a_STmin <= 0xF9)
+    m_STmin_timer.SetInterval_us((a_STmin = 0xF0) * 100);
+
+  if(a_STmin <= 0x7F)
+    m_STmin_timer.SetInterval_ms(a_STmin);
+  
+  //if()
+
+  m_STmin_this_device = a_STmin;
+}
+uint8_t  UDS::GetSeparationTime() const
+{
+  return m_STmin_this_device;
 }
 
 UDSOnCAN::UDSOnCAN()
@@ -790,28 +814,4 @@ uint64_t UDSOnCAN::GetSecurityAccessKey()
 }
 void UDSOnCAN::SendFlowControlFrame()
 {
-}
-void UDSOnCAN::SetSeparationTime(uint8_t a_STmin)
-{
-
-  // STmin values:
-  //       0x00-0x7F - Separation Time minimum range 0-127 ms
-  //       0x80-0xF0 - Reserved
-  //       0xF1-0xF9 - Separation Time minimum range 100-900 μs
-  //       0xFA-0xFF - Reserved
-
-  m_STmin_this_device = a_STmin;
-}
-uint8_t UDSOnCAN::GetSeparationTime() const
-{
-  return m_STmin_this_device;
-}   
-uint16_t UDSOnCAN::GetSeparationTime_us() const
-{
-  // STmin values:
-  //       0x00-0x7F - Separation Time minimum range 0-127 ms
-  //       0x80-0xF0 - Reserved
-  //       0xF1-0xF9 - Separation Time minimum range 100-900 μs
-  //       0xFA-0xFF - Reserved
-  return 0;
 }

@@ -151,6 +151,9 @@ public:
   virtual bool        IsECURXEnabled();
   virtual bool        IsECUTXEnabled();
   virtual void        CheckS3Timer();
+
+  virtual void        SetSeparationTime(uint8_t a_STmin);
+  virtual uint8_t     GetSeparationTime() const;
 protected:
   UDS();
   virtual ~UDS() = default;
@@ -165,11 +168,17 @@ protected:
   SeedSize      m_seed_size;
   uint64_t      m_seed;
   uint64_t      m_key;
+  Program_timer m_p2_timer;
   Program_timer m_s3_timer;
+  Program_timer m_STmin_timer;
+  const uint8_t m_block_size{50};
   bool          m_is_rx_enabled;
   bool          m_is_tx_enabled;
   
-  //Program_timer m_STmin_timer;
+  uint8_t       m_STmin_this_device;
+  uint8_t       m_STmin_tester;
+  uint8_t       m_BS_this_device;
+  uint8_t       m_BS_tester;
   //CommunicationControl m_cc_status;
 };
 
@@ -195,17 +204,9 @@ public:
 
 private:
   void SendFlowControlFrame();
-  void SetSeparationTime(uint8_t a_STmin);
-  uint8_t GetSeparationTime() const;
-  uint16_t GetSeparationTime_us() const;
 
   std::deque <UDS_Frame*> m_uds_tx_buffer;
   std::deque <UDS_Frame*> m_uds_rx_buffer;
-
-  uint8_t m_STmin_this_device;
-  uint8_t m_STmin_tester;
-  uint8_t m_BS_this_device;
-  uint8_t m_BS_tester;
 
   DID_Repository m_did_repository;
 };

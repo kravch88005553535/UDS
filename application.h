@@ -40,14 +40,12 @@ private:
   std::deque <CAN_Frame*> m_rx_can_deque;
   std::deque <CAN_Frame*> m_tx_can_deque;
 
-  //ISock&         mref_socket;
   int            m_socket;
-  sockaddr_can   m_addr;
+  sockaddr_un    m_addr;
   ifreq          m_ifr;
   can_frame      m_frame;
 
   UDSOnCAN&      mref_uds;
-
   const uint32_t m_ecu_rx_can_id;
   const uint32_t m_ecu_tx_can_id;
 
