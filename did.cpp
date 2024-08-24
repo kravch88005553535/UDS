@@ -1,5 +1,5 @@
+#include <vector>
 #include "did.h"
-
 
 //Use std::move!!!
 // DID_Instance::DID_Instance(const DID_Instance& aref_did_instance)
@@ -255,4 +255,15 @@ bool DID_Repository::WriteDataIdentifier(const DID a_did, const char* str)
 bool DID_Repository::WriteDataIdentifier(const DID a_did, std::string str)
 {
   return WriteDataIdentifier(a_did, str.c_str());
+}
+std::vector<DID_Instance*> DID_Repository::GetListOfModifiedDIDs()
+{
+  std::vector<DID_Instance*> vector;
+  for(auto it{m_dids_list.begin()}; it != m_dids_list.end(); ++it)
+  {
+    if((*it)->IsModified())
+    vector.push_back(*it);
+    (*it)->SetModifyFlag(false);
+  }
+  return vector;
 }

@@ -36,19 +36,23 @@ public:
 private:
   std::queue<std::string> m_rx_socket_queue;
   std::queue<std::string> m_tx_socket_queue;
-  
   std::deque <CAN_Frame*> m_rx_can_deque;
   std::deque <CAN_Frame*> m_tx_can_deque;
 
-  int            m_socket;
-  sockaddr_un    m_addr;
-//  ifreq          m_ifr;
+  int                     m_uds_socket;
+  sockaddr_un             m_uds_socket_address;
+  int                     m_diagmesg_socket;
+  sockaddr_un             m_diagmesg_socket_address;
 
-  UDSOnCAN&      mref_uds;
-  const uint32_t m_ecu_rx_can_id;
-  const uint32_t m_ecu_tx_can_id;
+  UDSOnCAN&               mref_uds;
+  DID_Repository&         m_did_repository;
 
+  const uint32_t          m_ecu_rx_can_id;
+  const uint32_t          m_ecu_tx_can_id;
 
+  void CreateSocketUDS();
+  void CreateSocketDiagMesg();
+  void CheckModifiedDids();
   void CheckSocketForNewRxData();
   void TransmitCanFrameToSocket();
 };

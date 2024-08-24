@@ -203,16 +203,22 @@ UDSOnCAN::UDSOnCAN()
   m_did_repository.WriteDataIdentifier(DID_RS232_2_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
   m_did_repository.WriteDataIdentifier(DID_RS485_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
   {
-      const char* string = "123dfklgdfskgds g";
-      volatile uint8_t str_len = strlen(string);
+    const char* string = "123dfklgdfskgds g";
+    volatile uint8_t str_len = strlen(string);
 
-      m_did_repository.WriteDataIdentifier(DID_VIN, string);
-      // m_did_repository.WriteDataIdentifier(DID_VIN, std::string("123dfklgdfskgds"));//DID_ExhaustRegulationOrTypeApprovalNumber
-      char str[50]{};
-      std::string t2 = m_did_repository.ReadDataIdentifier(DID_VIN);
-      m_did_repository.ReadDataIdentifier(DID_VIN, (uint8_t*)&str[0], str_len);
-      volatile auto t(7);
-    }
+    m_did_repository.WriteDataIdentifier(DID_VIN, string);
+    // m_did_repository.WriteDataIdentifier(DID_VIN, std::string("123dfklgdfskgds"));//DID_ExhaustRegulationOrTypeApprovalNumber
+    char str[50]{};
+    std::string t2 = m_did_repository.ReadDataIdentifier(DID_VIN);
+    m_did_repository.ReadDataIdentifier(DID_VIN, (uint8_t*)&str[0], str_len);
+    volatile auto t(7);
+  }
+  std::vector<DID_Instance*> vector{m_did_repository.GetListOfModifiedDIDs()};
+  for(auto it{vector.begin()}; it != vector.end(); ++it)
+  {
+    if((*it)->IsModified())
+      (*it)->SetModifyFlag(false);
+  }
 }
 UDSOnCAN::~UDSOnCAN(){}
 bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
@@ -522,7 +528,6 @@ void UDSOnCAN::Execute()
         const DID did{static_cast<DID>((*ptr << 8) | (*(++ptr)))};
         ++ptr;
         data_length -= 2;
-        std::cout << std::hex << sid << " " << did << '\n';
         if(m_did_repository.FindDataIdentifier(did))//look for did
         {
           auto did_size{m_did_repository.GetDataIdentifierSize(did)};
@@ -825,4 +830,8 @@ uint64_t UDSOnCAN::GetSecurityAccessKey()
 }
 void UDSOnCAN::SendFlowControlFrame()
 {
+}
+DID_Repository& UDSOnCAN::GetDIDRepository()
+{
+  return m_did_repository;
 }

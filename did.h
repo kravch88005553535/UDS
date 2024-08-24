@@ -87,17 +87,18 @@ class DID_Repository
 public:
   DID_Repository();
   ~DID_Repository();
-  const DID_Instance* const GetInstanceOfDID(const DID a_did);
-  bool                      ReadDataIdentifier(const DID a_did, uint8_t* ap_read_to, uint8_t a_size_bytes);
-  std::string               ReadDataIdentifier(const DID a_did);
-  bool                      FindDataIdentifier(const DID a_did) const;
-  uint32_t                  GetDataIdentifierSize(const DID a_did) const; 
-  bool                      WriteDataIdentifier(const DID a_did, const uint8_t* ap_read_from, uint8_t a_size_bytes);
-  bool                      WriteDataIdentifier(const DID a_did, const char* str);
-  bool                      WriteDataIdentifier(const DID a_did, std::string str);
-  void                      AddDataIdentifier(DID_Instance* ap_did);
-  void                      AddDataIdentifier(const DID a_did, const uint32_t a_size_bytes, const DID_Instance::DID_Datatype a_datatype, const DID_Instance::DID_RW a_rw);
-  bool                      RemoveDataIdentifier(const DID a_did);
+  const DID_Instance* const  GetInstanceOfDID(const DID a_did);
+  bool                       ReadDataIdentifier(const DID a_did, uint8_t* ap_read_to, uint8_t a_size_bytes);
+  std::string                ReadDataIdentifier(const DID a_did);
+  bool                       FindDataIdentifier(const DID a_did) const;
+  uint32_t                   GetDataIdentifierSize(const DID a_did) const; 
+  bool                       WriteDataIdentifier(const DID a_did, const uint8_t* ap_read_from, uint8_t a_size_bytes);
+  bool                       WriteDataIdentifier(const DID a_did, const char* str);
+  bool                       WriteDataIdentifier(const DID a_did, std::string str);
+  void                       AddDataIdentifier(DID_Instance* ap_did);
+  void                       AddDataIdentifier(const DID a_did, const uint32_t a_size_bytes, const DID_Instance::DID_Datatype a_datatype, const DID_Instance::DID_RW a_rw);
+  bool                       RemoveDataIdentifier(const DID a_did);
+  std::vector<DID_Instance*> GetListOfModifiedDIDs();
 private:
   std::list<DID_Instance*> m_dids_list;    
 };

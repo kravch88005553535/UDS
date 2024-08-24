@@ -201,7 +201,7 @@ public:
   void CalculateSecurityAccessFullKey();
   uint64_t GetSecurityAccessKey();
   bool CompareSecurityAccessKey(uint64_t a_key);
-
+  DID_Repository& GetDIDRepository();
 private:
   void SendFlowControlFrame();
 
