@@ -172,13 +172,13 @@ UDSOnCAN::UDSOnCAN()
 {
   m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareConfigurationNumber,        32, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareConfigurationVersionNumber, 32, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_FirmwareUpdateMode,                                       sizeof(uint8_t/*bool*/),  DID_Instance::DID_Datatype_bool, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_MapUpdateMode,                                            sizeof(uint8_t/*bool*/),  DID_Instance::DID_Datatype_bool, DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_FirmwareUpdateMode,                                       sizeof(bool),  DID_Instance::DID_Datatype_bool, DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_MapUpdateMode,                                            sizeof(bool),  DID_Instance::DID_Datatype_bool, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_RS232_1_BaudrateSetup,                                    sizeof(unsigned),  DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_RS232_2_BaudrateSetup,                                    sizeof(unsigned),  DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_RS485_BaudrateSetup,                                      sizeof(unsigned),  DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_WiFiPassword,                                             64, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_DiagData,                                                 2,   DID_Instance::DID_Datatype_bytearray, DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_DiagData,                                                 2,   DID_Instance::DID_Datatype_raw_data, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareNumber,                     20,  DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareVersionNumber,              32,  DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_SystemSupplierIdentifierDataIdentifier,                   32,  DID_Instance::DID_Datatype_c_string, DID_Instance::Readonly);
@@ -227,7 +227,6 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
   static uint32_t  cf_data_remaining{};
   static uint8_t   next_consecutive_frame_index{};
 
-  
   volatile UDS_Frame::PCI pci{(UDS_Frame::PCI)((ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0xF0) >> 4)};
 
   switch(pci)
@@ -312,7 +311,8 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
     // byte 2 is block size
     // byte 3 is ST_min (Separation Time minimum)
     // bytes 4..8 are not N/A
-      m_status = Status_ok;
+      m_status = Status_recieved_fcf;
+      return true;
     break;
 
     default:
@@ -524,7 +524,7 @@ void UDSOnCAN::Execute()
       case UDS::Service_WriteDataByIdentifier:
       {
         const uint8_t* ptr{uds_frame->GetData()};
-        auto data_length{uds_frame->GetDataLength()};
+        auto  data_length{uds_frame->GetDataLength()};
         const DID did{static_cast<DID>((*ptr << 8) | (*(++ptr)))};
         ++ptr;
         data_length -= 2;
@@ -538,9 +538,6 @@ void UDSOnCAN::Execute()
           else
           {
             m_did_repository.WriteDataIdentifier(did, ptr, data_length);
-            //set size to write(data length)
-            //writedataidentifier
-            //response positively
             auto total_data_size{sizeof(DID)};
             uint8_t* response_data{new uint8_t[total_data_size]};
             response_data[0] = (did & 0xFF00) >> 8;
@@ -713,6 +710,7 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
           CAN_Frame::DataPos data_pos = static_cast<CAN_Frame::DataPos>(CAN_Frame::DataPos_1 + i);
           tx_frame->SetData(data_pos, *data++);
         }
+        tx_frame->SetSource(uds_frame->GetSource());
         frames.push_back(tx_frame);
         tx_frame = nullptr;
         ff_cf_remaining_data_bytes -= data_bytes_total_in_cf;

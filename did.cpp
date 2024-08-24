@@ -241,6 +241,13 @@ bool DID_Repository::WriteDataIdentifier(const DID a_did, const uint8_t* ap_read
           else 
             *write_to_ptr++ = 0;
         }
+        //kostyl!
+        if((*it)->GetDataType() == DID_Instance::DID_Datatype_bool)
+        {
+          bool* const data{reinterpret_cast<bool*>((*it)->GetPtrToData())};
+          (*data) = (*data) ? 0x01 : 0x00;
+        }
+        //end of kostyl
         (*it)->SetModifyFlag(true);
         is_operation_successful = true;
       }

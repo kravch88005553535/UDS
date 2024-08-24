@@ -62,6 +62,13 @@ bool Application::Execute()
         TransmitCanFrameToSocket();
         mref_uds.SetUDSStatus(UDS::Status_rx_waits_for_FCF);
       break;
+      
+      case UDS::Status_recieved_fcf:
+        if(!m_tx_can_deque.empty())// and timer.check()
+          TransmitCanFrameToSocket();
+        else
+          mref_uds.SetUDSStatus(UDS::Status_ok);
+      break;
 
       case UDS::Status_rx_waits_for_FCF:
       break;
@@ -134,9 +141,50 @@ void Application::CheckModifiedDids()
   for(auto it{modified_dids.begin()}; it != modified_dids.end(); ++it)
   {
     std::stringstream ss;
-    DID_Instance::DID_Datatype datatype{(*it)->GetDataType()};
-    DID did_number{(*it)->GetDID()};
-    ss << "DID." << std::hex << (uint16_t)did_number  << "." << "BOOL." << "0";
+    const DID_Instance::DID_Datatype datatype{(*it)->GetDataType()};
+    const DID did_number{(*it)->GetDID()};
+    ss << "DID." << std::hex << (uint16_t)did_number  << ".";
+    switch (datatype)
+    {
+      case DID_Instance::DID_Datatype_std_string:
+      case DID_Instance::DID_Datatype_c_string:
+      {
+        const char* str_value{reinterpret_cast<const char*>((*it)->GetPtrToConstData())};
+        ss << "STR." << str_value;
+      }
+      break;
+      case DID_Instance::DID_Datatype_float:
+      {
+        float flt_value{*(float*)(*it)->GetPtrToConstData()};
+        ss << "FLT." << flt_value;
+      }
+      break;
+      case DID_Instance::DID_Datatype_double:
+      {
+        double dbl_value{*(double*)(*it)->GetPtrToConstData()};
+        ss << "DBL." << dbl_value;
+      }
+      break;
+      case DID_Instance::DID_Datatype_integer:
+      {
+        int32_t i_value{*(int32_t*)(*it)->GetPtrToData()};
+        ss << "INT." << i_value; 
+      }
+      break;
+      case DID_Instance::DID_Datatype_unsigned_integer:
+      {
+        int64_t ui_value{*(uint32_t*)(*it)->GetPtrToData()};
+        ss << "INT." << ui_value;   //UINT.
+      }
+      break;
+      case DID_Instance::DID_Datatype_bool:
+      {
+        bool b_value{*(bool*)(*it)->GetPtrToData()};
+        ss << "BOOL." << b_value; 
+      }
+      break;
+    }
+    
     std::string transmit_data{ss.str()};
     auto string_length{strlen(transmit_data.c_str())+1};
     if(send(m_diagmesg_socket, (transmit_data +'\n').c_str(), string_length, 0) == -1) {
@@ -285,7 +333,6 @@ void Application::TransmitCanFrameToSocket()
   auto string_length{strlen(transmit_data.c_str())+1};
   if (send(m_uds_socket, (transmit_data +'\n').c_str(), string_length, 0) == -1) {
     perror("send");
-    //exit(1);
   }
   
   m_tx_can_deque.pop_front(); 

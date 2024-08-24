@@ -105,6 +105,7 @@ public:
   {
     Status_ok,
     Status_is_executing_rx_ff,
+    Status_recieved_fcf,
     Status_rx_waits_for_FCF
   };
   enum SeedSize
@@ -158,7 +159,7 @@ protected:
   UDS();
   virtual ~UDS() = default;
 
-  Status        m_status;
+  volatile Status        m_status;
   SessionType   m_sessiontype;
   uint8_t       m_sa_security_level_unlocked;
   bool          m_sa_requestsequenceerror;
