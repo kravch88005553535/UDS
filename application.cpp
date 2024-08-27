@@ -17,7 +17,6 @@ Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx
   , m_diagmesg_socket_address{}
   , m_did_repository{mref_uds.GetDIDRepository()}
 {}
-
 Application::~Application()
 {
   //delete UDS socket
@@ -56,21 +55,21 @@ bool Application::Execute()
       }
     }
 
-    switch (mref_uds.GetUDSStatus())
+    switch (mref_uds.GetStatus())
     {
-      case UDS::Status_is_executing_rx_ff:
+      case UDSOnCAN::Status_is_executing_rx_ff:
         TransmitCanFrameToSocket();
-        mref_uds.SetUDSStatus(UDS::Status_rx_waits_for_FCF);
+        mref_uds.SetStatus(UDSOnCAN::Status_is_waiting_fcf);
       break;
       
-      case UDS::Status_recieved_fcf:
+      case UDSOnCAN::Status_recieved_fcf:
         if(!m_tx_can_deque.empty())// and timer.check()
           TransmitCanFrameToSocket();
         else
-          mref_uds.SetUDSStatus(UDS::Status_ok);
+          mref_uds.SetStatus(UDSOnCAN::Status_ok);
       break;
 
-      case UDS::Status_rx_waits_for_FCF:
+      case UDSOnCAN::Status_is_waiting_fcf:
       break;
       
       default:
@@ -217,7 +216,6 @@ void Application::CheckModifiedDids()
   //     //exit(1);
   // }
 }
-
 void Application::CheckSocketForNewRxData()
 {  
   static std::string recieved_data{};
@@ -273,7 +271,7 @@ void Application::CheckSocketForNewRxData()
     constexpr auto can_frame_data_size_bytes{8};
     recieved_data_substring = recieved_data_substring.substr(second_grid_index+1);
     uint8_t can_data[can_frame_data_size_bytes]{};
-    uint8_t length{recieved_data_substring.length()};
+    uint8_t length{static_cast<uint8_t>(recieved_data_substring.length())};
     constexpr auto min_substring_size{3};
     constexpr auto max_substring_size{23};
     

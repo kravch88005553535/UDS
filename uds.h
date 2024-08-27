@@ -101,13 +101,7 @@ public:
     NRC_VoltageTooLow                                   = 0x93,
     NRC_ResourceTemporaryUnavailable                    = 0x94
   };
-  enum Status
-  {
-    Status_ok,
-    Status_is_executing_rx_ff,
-    Status_recieved_fcf,
-    Status_rx_waits_for_FCF
-  };
+
   enum SeedSize
   {
     Seedsize_1_byte = 1,
@@ -142,24 +136,26 @@ public:
     NetworkManagementCommunicationMessagesAndNormalCommunicationMessages = 0x3
   };
 
-  virtual void        SetUDSStatus(const Status a_status);
-  virtual Status      GetUDSStatus();
-  virtual void        SetSessionType(const SessionType a_sessiontype);
-  virtual SessionType GetSessiontype();
-  virtual bool        CheckNumberOfSecurityAccessAttempts(const uint8_t a_subfunction);
-  virtual void        ReloadNumberOfSecurityAccessAttempts();
-  virtual void        SetCommunicationControl(CommunicationControl a_communication_control);
-  virtual bool        IsECURXEnabled();
-  virtual bool        IsECUTXEnabled();
-  virtual void        CheckS3Timer();
-
-  virtual void        SetSeparationTime(uint8_t a_STmin);
-  virtual uint8_t     GetSeparationTime() const;
+  void        SetSessionType(const SessionType a_sessiontype);
+  SessionType GetSessiontype();
+  bool        CheckNumberOfSecurityAccessAttempts(const uint8_t a_subfunction);
+  void        ReloadNumberOfSecurityAccessAttempts();
+  void        SetCommunicationControl(CommunicationControl a_communication_control);
+  bool        IsECURXEnabled();
+  bool        IsECUTXEnabled();
+  void        CheckS3Timer();
+  void        SetSeparationTimeForTester(uint8_t a_stmin);
+  uint8_t     GetSeparationTimeTester() const;
+  void        GenerateAndUpdateSecurityAccessSeed(SeedSize a_seed_size);
+  void        CalculateSecurityAccessFullKey();
+  uint64_t    GetSecurityAccessKey();
+  bool        CompareSecurityAccessKey(uint64_t a_key);
 protected:
   UDS();
   virtual ~UDS() = default;
 
-  volatile Status        m_status;
+  bool          m_is_busy;
+  
   SessionType   m_sessiontype;
   uint8_t       m_sa_security_level_unlocked;
   bool          m_sa_requestsequenceerror;
@@ -169,46 +165,54 @@ protected:
   SeedSize      m_seed_size;
   uint64_t      m_seed;
   uint64_t      m_key;
+
   Program_timer m_p2_timer;
   Program_timer m_s3_timer;
-  Program_timer m_STmin_timer;
-  const uint8_t m_block_size{50};
+  Program_timer m_separation_time_min_this_device_timer;
+  Program_timer m_separation_time_min_tester_timer;
+  const uint8_t m_separation_time_this_device;
+  uint8_t       m_separation_time_min_tester;
+  const uint8_t m_block_size_this_device; 
+  uint8_t       m_block_size_tester;
+
   bool          m_is_rx_enabled;
   bool          m_is_tx_enabled;
-  
-  uint8_t       m_STmin_this_device;
-  uint8_t       m_STmin_tester;
-  uint8_t       m_BS_this_device;
-  uint8_t       m_BS_tester;
   //CommunicationControl m_cc_status;
 };
 
 class UDSOnCAN : public UDS
 {
 public:
+  enum Status
+  {
+    Status_ok,
+    Status_is_busy,
+    Status_is_executing_rx_ff,
+    Status_is_waiting_fcf,
+    Status_recieved_fcf,
+  };
   UDSOnCAN();
   ~UDSOnCAN();
   
   void Execute();
-  void MakePositiveResponse(const Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size, const CAN_Frame::Source a_source);
-  void MakeNegativeResponse(const Service a_rejected_sid, UDS::NegativeResponseCode a_nrc, const CAN_Frame::Source a_source);
 
   bool IsRXBufferOfUDSEmpty();
   bool IsTXBufferOfUDSEmpty();
   bool ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame);
   std::vector<CAN_Frame*> ConvertUDSFrameToCAN();
 
-  void GenerateAndUpdateSecurityAccessSeed(UDS::SeedSize a_seed_size);
-  void CalculateSecurityAccessFullKey();
-  uint64_t GetSecurityAccessKey();
-  bool CompareSecurityAccessKey(uint64_t a_key);
+  void        SetStatus(const Status a_status);
+  Status      GetStatus();
+
   DID_Repository& GetDIDRepository();
 private:
-  void SendFlowControlFrame();
-
+  void MakePositiveResponse(const Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size, const CAN_Frame::Source a_source);
+  void MakeNegativeResponse(const Service a_rejected_sid, UDS::NegativeResponseCode a_nrc, const CAN_Frame::Source a_source);
+  
   std::deque <UDS_Frame*> m_uds_tx_buffer;
   std::deque <UDS_Frame*> m_uds_rx_buffer;
 
   DID_Repository m_did_repository;
+  Status        m_status;
 };
 #endif //__UDS_H__

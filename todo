@@ -1,7 +1,12 @@
+-- ok -- move sa key from udsoncan to uds
+//move enum Status to udsoncan
 допилить отправку 2 дида в сокет
 перепилить stmin клиент сервер
-//can_frame::source in uds
-//move sa key from udsoncan to uds
+
+
+--in progress-- add wait for fcf
+--in progress-- add server is busy
+--in progress-- add sprmib check
 --in progress-- реализовать все проверки по 7.5!!!! перекинуть service to uds from uds frame
 --in progress-- добавить уровни доступа к сидам
 --in progress-- timers добавить таймеры между пакетами
@@ -13,13 +18,8 @@
 -- need test -- security access levels 0x01 0x03 0x05
 -- need test -- restore number of attempts if successful
 -- need test -- действия при смене типа сессии: закрыть SA
-add wait for fcf
-add server is busy
-add sprmib check
-add sa time delay(Required Time Delay Not Expired (0x37)) & check in Exceeded Number of Attempts (0x36)
 
-   -- ok --     написать братьям китайцам по адаптеру
-   -- ok --     SecurityAccess XTEA key
+add sa time delay(Required Time Delay Not Expired (0x37)) & check in Exceeded Number of Attempts (0x36)
 
 fcf set/get fcf flag everywhere добавить длину блока пакетов(BS)
 
