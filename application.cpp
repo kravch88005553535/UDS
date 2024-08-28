@@ -150,8 +150,7 @@ void Application::CheckModifiedDids()
       {
         volatile auto t{0};
         const char* str_value{reinterpret_cast<const char*>((*it)->GetPtrToConstData())};
-        ss << "STR." << str_value << '\n';
-        std::cout << ss.str() << std::endl;
+        ss << "STR." << str_value ;//<< '\n';
       }
       break;
       case DID_Instance::DID_Datatype_float:
@@ -181,12 +180,16 @@ void Application::CheckModifiedDids()
       case DID_Instance::DID_Datatype_bool:
       {
         bool b_value{*(bool*)(*it)->GetPtrToData()};
-        ss << "BOOL." << b_value ? "TRUE" : "FALSE"; 
+        ss << "BOOL." << (b_value ? "TRUE" : "FALSE"); 
       }
       break;
     }
     
     std::string transmit_data{ss.str()};
+    if(!transmit_data.empty())
+    {
+      std::cout << std::endl << ss.str() << std::endl;
+    }
     auto string_length{strlen(transmit_data.c_str())+1};
     if(send(m_diagmesg_socket, (transmit_data +'\n').c_str(), string_length, 0) == -1) {
     perror("send");
@@ -329,7 +332,7 @@ void Application::TransmitCanFrameToSocket()
   }
   
   transmit_data.append(stringstream.str());
-  std::cout << "TX<" << transmit_data << '\n' << std::endl;
+  std::cout << "TX<" << transmit_data << std::endl;
   auto string_length{strlen(transmit_data.c_str())+1};
   if (send(m_uds_socket, (transmit_data +'\n').c_str(), string_length, 0) == -1) {
     perror("send");

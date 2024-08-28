@@ -11,7 +11,7 @@ enum DID: uint16_t
 {
   DID_VehicleManufacturerECUSoftwareConfigurationNumber         = 0xF1A0,
   DID_VehicleManufacturerECUSoftwareConfigurationVersionNumber  = 0xF1A1,
-  DID_FirmwareUpdateMode                                        = 0xF1A2,
+  DID_FirmwareUpdateMode                                        = 0x200,//F1A2,
   DID_MapUpdateMode                                             = 0xF1A3,
   DID_RS232_1_BaudrateSetup                                     = 0xF1A4,
   DID_RS232_2_BaudrateSetup                                     = 0xF1A5,
@@ -35,7 +35,9 @@ enum DID: uint16_t
   DID_ProgrammingDate                                           = 0xF199,
   DID_ECUInstallationDate                                       = 0xF19D,
   DID_SystemSupplierBaseConfiguration                           = 0xF1F0,
-  DID_BaseSoftwareVersion                                       = 0xFD10
+  DID_BaseSoftwareVersion                                       = 0xFD10,
+  DID_FirmwareUpdateStatus                                      = 0xF1A9,
+  DID_MapUpdateStatus                                           = 0xF1AA
 };
 
 class DID_Instance
