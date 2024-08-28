@@ -72,6 +72,7 @@ public:
   void           Unlock();
   void           SetModifyFlag(bool a_flag);
   bool           IsModified();
+  
 private:
   const DID      m_did;
   uint32_t       m_size;

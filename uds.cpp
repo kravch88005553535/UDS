@@ -2,8 +2,8 @@
 #include <random>
 #include <chrono>
 #include <cstdint>
-
 #include "uds.h"
+#include "iso15765-2.h"
 
 UDS::UDS()
   : m_is_busy{false}
@@ -22,7 +22,7 @@ UDS::UDS()
   , m_separation_time_min_tester_timer{Program_timer::Type_one_pulse}
   , m_separation_time_this_device{0x64} //100ms
   , m_separation_time_min_tester{}
-  , m_block_size_this_device{20} //frames
+  , m_block_size_this_device{0} //all frames without fcf
   , m_block_size_tester{}
 {
   m_s3_timer.SetInterval_sec(5);
@@ -487,12 +487,13 @@ void UDSOnCAN::Execute()
       {
         const uint8_t* ptr{uds_frame->GetData()};
         auto  data_length{uds_frame->GetDataLength()};
-        const DID did{static_cast<DID>((*ptr << 8) | (*(++ptr)))};
+        const DID did {static_cast<DID>((*ptr << 8) | (*(++ptr)))};
         ++ptr;
         data_length -= 2;
         if(m_did_repository.FindDataIdentifier(did))//look for did
         {
           auto did_size{m_did_repository.GetDataIdentifierSize(did)};
+
           if(did_size < data_length)
           {
             MakeNegativeResponse(sid, UDS::NRC_GeneralReject, source);//if size not compares make negative response
@@ -542,11 +543,11 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
   static uint32_t  cf_data_remaining{};
   static uint8_t   next_consecutive_frame_index{};
 
-  volatile UDS_Frame::PCI pci{(UDS_Frame::PCI)((ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0xF0) >> 4)};
+  volatile ISO_15765_2_PCI pci{(ISO_15765_2_PCI)((ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0xF0) >> 4)};
 
   switch(pci)
   {
-    case UDS_Frame::PCI::PCI_SingleFrame:
+    case ISO_15765_2_PCI::PCI_SingleFrame:
     {
       UDS_Frame* rx_frame{new UDS_Frame};
       const uint8_t payload {uint8_t(ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0x0F)};
@@ -560,39 +561,49 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
     }
     break;
 
-    case UDS_Frame::PCI::PCI_FirstFrame:
+    case ISO_15765_2_PCI::PCI_FirstFrame:
     {
-      constexpr auto ff_data_size{5};
-      //static_uds_frame.SetSource(ap_can_frame->GetSource());
-      cf_data_remaining = (ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0x0F) << 4 || ap_can_frame->GetData(CAN_Frame::DataPos_1);
-      static_uds_frame.SetDataLength(cf_data_remaining);
-      static_uds_frame.SetSID(static_cast<UDS::Service>(ap_can_frame->GetData(CAN_Frame::DataPos_1)));
-      static_uds_frame.SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_2), ff_data_size, 0);
+      constexpr auto ff_data_size{3};
+      constexpr auto ff_sid_size{1};
+      constexpr auto ff_did_size{2};
+      cf_data_remaining = (ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0x0F) << 4 | ap_can_frame->GetData(CAN_Frame::DataPos_1);
+      static_uds_frame.SetDataLength(cf_data_remaining-ff_sid_size);
+      static_uds_frame.SetSID(static_cast<UDS::Service>(ap_can_frame->GetData(CAN_Frame::DataPos_2)));
+      static_uds_frame.SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_3), ff_data_size+ff_did_size, 0);
       static_uds_frame.SetframeValidity(true);
       static_uds_frame.SetSource(ap_can_frame->GetSource());
-      cf_data_remaining -= ff_data_size;
-      
+      cf_data_remaining -= ff_sid_size + ff_did_size + ff_data_size;
       next_consecutive_frame_index = 1;
+
+      UDS_Frame* flowcontrolframe{new UDS_Frame};
+      flowcontrolframe->SetProtocolInformation(ISO_15765_2_PCI::PCI_FlowControlFrame);
+      flowcontrolframe->SetSource(ap_can_frame->GetSource());
+      flowcontrolframe->SetFlagOfFCF(ISO_15765_2_PCI_FCF_Flag::FCF_Flag_CTS);
+      m_uds_tx_buffer.push_back(flowcontrolframe);
+      return true;
     }
     break;
 
-    case UDS_Frame::PCI::PCI_ConsecutiveFrame:
+    case ISO_15765_2_PCI::PCI_ConsecutiveFrame:
     {
+      //if(!(--m_frames_remaining_until_next_fcf))
+      //  SetStatus(UDSOnCAN::Status_is_waiting_fcf);
+
       const uint8_t consecutive_frame_index{(uint8_t)(ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0x0F)};
       constexpr auto cf_data_size{7};
       const uint32_t offset{static_uds_frame.GetDataLength() - cf_data_remaining};
-
       if(cf_data_remaining == 0)
         break;
 
       if(consecutive_frame_index != next_consecutive_frame_index)
+      {
         static_uds_frame.SetframeValidity(false);
-      
+      }
+        
       if(cf_data_remaining <= cf_data_size)
       {
         static_uds_frame.SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_1), cf_data_remaining, offset);
         cf_data_remaining = 0;
-        
         UDS_Frame* rx_frame{new UDS_Frame(static_uds_frame)};
         m_uds_rx_buffer.push_back(rx_frame);
         return true; 
@@ -601,33 +612,52 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
       {
         static_uds_frame.SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_1), cf_data_size, offset);
         cf_data_remaining -= cf_data_size;
-        
         if(++next_consecutive_frame_index > 0x0F)
-        next_consecutive_frame_index = 1;
+          next_consecutive_frame_index = 1;
         //reload cf_wait timer
       }
     //check last frame & check frame sid
     //else select offset by frame number
     //if data finished perform actions in execute
     //bits 3..0 of byte 1 is sequence number
+      return true;
     }
     break;
 
-    case UDS_Frame::PCI::PCI_FlowControlFrame:
-    //IN RESPONSE:
-    //SET FLOWSTATUS
-    //SET BLOCKSIZE
-    //SET STMIN
-    //SET SOURCE
-    // IN REQUEST EXECURE ALL THIS PARAMETERS
+    case ISO_15765_2_PCI::PCI_FlowControlFrame:
+    {
+      // here no conversion to uds frame needed, 
+      // just get parameters of UDS & transmit to can tx queue
+      const ISO_15765_2_PCI_FCF_Flag flag{(ISO_15765_2_PCI_FCF_Flag)(ap_can_frame->GetData(CAN_Frame::DataPos_0) & 0x0F)};
+      if(flag == ISO_15765_2_PCI_FCF_Flag::FCF_Flag_CTS)
+      {
+        m_frames_remaining_until_next_fcf = ap_can_frame->GetData(CAN_Frame::DataPos_1);
+        const uint8_t separation_time{ap_can_frame->GetData(CAN_Frame::DataPos_1)};
+        SetSeparationTimeForTester(separation_time);
+      }
+      else if(flag == ISO_15765_2_PCI_FCF_Flag::FCF_Flag_Wait)
+      {
+      }
+      else if(flag == ISO_15765_2_PCI_FCF_Flag::FCF_Flag_Overflow)
+      {
+      }
+      //if(flag == overflow/abort)
+
+      //IN RESPONSE:
+      //SET FLOWSTATUS
+      //SET BLOCKSIZE
+      //SET STMIN
+      //SET SOURCE
+      // IN REQUEST EXECURE ALL THIS PARAMETERS
 
 
-    //bits 3..0 of byte 1 is flow status
-    // byte 2 is block size
-    // byte 3 is ST_min (Separation Time minimum)
-    // bytes 4..8 are not N/A
-      m_status = Status_recieved_fcf;
-      return true;
+      //bits 3..0 of byte 1 is flow status
+      // byte 2 is block size
+      // byte 3 is ST_min (Separation Time minimum)
+      // bytes 4..8 are not N/A
+        m_status = Status_recieved_fcf;
+        return true;
+    }
     break;
 
     default:
@@ -657,9 +687,10 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
 
   switch(uds_frame->GetProtocolInformation())
   {
-    case UDS_Frame::PCI_SingleFrame:
+    case ISO_15765_2_PCI::PCI_SingleFrame:
     {
-      const uint8_t pci_shifted{static_cast<uint8_t>(uds_frame->GetProtocolInformation() << 4)};
+      const uint8_t pci{static_cast<uint8_t>(uds_frame->GetProtocolInformation())};
+      const uint8_t pci_shifted = pci << 4;
       const uint8_t size{static_cast<uint8_t>(uds_frame->GetDataLength()+1)};
       const uint8_t sid{static_cast<uint8_t>(uds_frame->GetSID())};
       const uint8_t* data{uds_frame->GetData()};
@@ -679,10 +710,11 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
       tx_frame = nullptr;
     }
     break;
-    case UDS_Frame::PCI_FirstFrame:
+    case ISO_15765_2_PCI::PCI_FirstFrame:
     {
       constexpr auto data_bytes_total_in_ff{5};
-      const uint8_t pci_shifted{static_cast<uint8_t>(uds_frame->GetProtocolInformation() << 4)};
+      const uint8_t pci{static_cast<uint8_t>(uds_frame->GetProtocolInformation())};
+      const uint8_t pci_shifted = pci << 4;
       ff_cf_remaining_data_bytes = uds_frame->GetDataLength()+1;
       //assign data length to the frame
       volatile uint8_t size_l{static_cast<uint8_t>(ff_cf_remaining_data_bytes & 0xFF)};
@@ -700,16 +732,17 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
       }
       //check for ff_cf_remaining_data_bytes > data_bytes_total_in_ff
       ff_cf_remaining_data_bytes -= data_bytes_total_in_ff;
-    }
       tx_frame->SetSource(uds_frame->GetSource());
       frames.push_back(tx_frame);
       tx_frame = nullptr;
+    }
     break;
-    case UDS_Frame::PCI_ConsecutiveFrame:
+    case ISO_15765_2_PCI::PCI_ConsecutiveFrame:
     {
       constexpr auto cf_index_first{0x01}, cf_index_last{0x0F}, data_bytes_total_in_cf{7};
       uint8_t index{cf_index_first};
-      const uint8_t pci_shifted{static_cast<uint8_t>(uds_frame->GetProtocolInformation() << 4)};
+      const uint8_t pci{static_cast<uint8_t>(uds_frame->GetProtocolInformation())};
+      const uint8_t pci_shifted = pci << 4;
       const uint8_t* data{uds_frame->GetData()};
 
       while(ff_cf_remaining_data_bytes >= data_bytes_total_in_cf)
@@ -745,13 +778,14 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
       }
     }
     break;
-    case UDS_Frame::PCI_FlowControlFrame:
+    case ISO_15765_2_PCI::PCI_FlowControlFrame:
     {
-      const uint8_t pci_shifted{static_cast<uint8_t>(uds_frame->GetProtocolInformation() << 4)};
-      const UDS_Frame::FCF_Flag fcf_flag{uds_frame->GetFlagOfFCF()};
+      const uint8_t pci{static_cast<uint8_t>(uds_frame->GetProtocolInformation())};
+      const uint8_t pci_shifted = pci << 4;
+      const ISO_15765_2_PCI_FCF_Flag fcf_flag{uds_frame->GetFlagOfFCF()};
       tx_frame = {new CAN_Frame};
       tx_frame->Fill(padding);
-      tx_frame->SetData(CAN_Frame::DataPos_0, pci_shifted | fcf_flag);
+      tx_frame->SetData(CAN_Frame::DataPos_0, pci_shifted | (uint8_t)fcf_flag);
       tx_frame->SetData(CAN_Frame::DataPos_1, m_block_size_this_device);
       tx_frame->SetData(CAN_Frame::DataPos_2, m_separation_time_this_device);
       tx_frame->SetSource(uds_frame->GetSource());
@@ -780,22 +814,12 @@ DID_Repository& UDSOnCAN::GetDIDRepository()
 }
 void UDSOnCAN::MakePositiveResponse(const UDS::Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size, const CAN_Frame::Source a_source)
 {
-  // if(a_sid == flowcontrol)
-  // {
-  //   UDS_Frame* flowcontrolframe{new UDS_Frame};
-  //   flowcontrolframe->SetSID(static_cast<UDS_Frame::Service>(a_sid + 0x40));
-  //   flowcontrolframe->SetDataLength();
-  //   flowcontrolframe->SetProtocolInformation(UDS_Frame::PCI_FlowControlFrame;
-  //   flowcontrolframe->->SetSource(a_source);
-  //   m_uds_tx_buffer.push_back(flowcontrolframe);
-  // }
-  // else
   if(a_data_size <= 6)
   {
     UDS_Frame* single_frame{new UDS_Frame};
     single_frame->SetSID(static_cast<UDS::Service>(a_sid + 0x40));
     single_frame->SetDataLength(a_data_size);
-    single_frame->SetProtocolInformation(UDS_Frame::PCI_SingleFrame);
+    single_frame->SetProtocolInformation(ISO_15765_2_PCI::PCI_SingleFrame);
     single_frame->SetData(a_data_ptr,a_data_size,0);
     single_frame->SetSource(a_source);
     m_uds_tx_buffer.push_back(single_frame);
@@ -806,7 +830,7 @@ void UDSOnCAN::MakePositiveResponse(const UDS::Service a_sid, const uint8_t* a_d
     uint32_t ff_data_size{5};
     first_frame->SetSID(static_cast<UDS::Service>(a_sid + 0x40));
     first_frame->SetDataLength(a_data_size);
-    first_frame->SetProtocolInformation(UDS_Frame::PCI_FirstFrame);
+    first_frame->SetProtocolInformation(ISO_15765_2_PCI::PCI_FirstFrame);
     first_frame->SetData(a_data_ptr,ff_data_size,0);
     first_frame->SetSource(a_source);
     m_uds_tx_buffer.push_back(first_frame);
@@ -815,7 +839,7 @@ void UDSOnCAN::MakePositiveResponse(const UDS::Service a_sid, const uint8_t* a_d
     UDS_Frame* consecutive_frames{new UDS_Frame};
     uint32_t cf_data_size{a_data_size - ff_data_size};
     consecutive_frames->SetDataLength(cf_data_size);
-    consecutive_frames->SetProtocolInformation(UDS_Frame::PCI_ConsecutiveFrame);
+    consecutive_frames->SetProtocolInformation(ISO_15765_2_PCI::PCI_ConsecutiveFrame);
     consecutive_frames->SetData(a_data_ptr,cf_data_size,0);
     consecutive_frames->SetSource(a_source);
     m_uds_tx_buffer.push_back(consecutive_frames);
@@ -827,7 +851,7 @@ void UDSOnCAN::MakeNegativeResponse(UDS::Service a_rejected_sid, UDS::NegativeRe
 {
   constexpr auto payload_size{2};
   UDS_Frame* negativeresponse_frame{new UDS_Frame};
-  negativeresponse_frame->SetProtocolInformation(UDS_Frame::PCI_SingleFrame);
+  negativeresponse_frame->SetProtocolInformation(ISO_15765_2_PCI::PCI_SingleFrame);
   negativeresponse_frame->SetSID(UDS::Service_NegativeResponse);
   negativeresponse_frame->SetDataLength(payload_size);
   uint8_t* data{new uint8_t[payload_size]};

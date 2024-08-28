@@ -2,26 +2,12 @@
 #define __UDS_MESSAGE_H__
 #include <stdint.h>
 #include "can_frame.h"
-
+#include "iso15765-2.h"
 // this is only appreciable for can frames on the CAN bus!!!
 
 class UDS_Frame
 {
 public:
-  enum PCI//ProtocolControlInformation
-  {
-    PCI_SingleFrame      = 0x0,
-    PCI_FirstFrame       = 0x1,
-    PCI_ConsecutiveFrame = 0x2,
-    PCI_FlowControlFrame = 0x3
-  };
-  enum FCF_Flag
-  {
-    FCF_Flag_CTS      = 0x00,
-    FCF_Flag_Wait     = 0x01,
-    FCF_Flag_Overflow = 0x02
-  };
-
   UDS_Frame();
   UDS_Frame(const UDS_Frame& a_other);
   ~UDS_Frame();
@@ -29,8 +15,8 @@ public:
   void SetSource(const CAN_Frame::Source a_source);
   CAN_Frame::Source GetSource() const;
 
-  void SetProtocolInformation(UDS_Frame::PCI a_protocol_information);
-  UDS_Frame::PCI GetProtocolInformation();
+  void SetProtocolInformation(ISO_15765_2_PCI a_protocol_information);
+  ISO_15765_2_PCI GetProtocolInformation();
 
   void SetDataLength(const uint16_t a_data_length);
   uint16_t GetDataLength();
@@ -44,16 +30,16 @@ public:
   void SetframeValidity(bool a_validity);
   bool IsFrameValid();
 
-  void SetFlagOfFCF(const FCF_Flag a_flag);
-  FCF_Flag GetFlagOfFCF() const;
+  void SetFlagOfFCF(const ISO_15765_2_PCI_FCF_Flag a_flag);
+  ISO_15765_2_PCI_FCF_Flag GetFlagOfFCF() const;
 private:
-  CAN_Frame::Source m_source;
-  PCI               m_protocol_information;
-  uint16_t          m_data_length;
-  uint8_t           m_sid;
-  uint8_t           m_data[4096];
-  bool              m_is_frame_valid;
-  FCF_Flag          m_fcf_flag;
+  CAN_Frame::Source        m_source;
+  ISO_15765_2_PCI          m_protocol_information;
+  uint16_t                 m_data_length;
+  uint8_t                  m_sid;
+  uint8_t                  m_data[4096];
+  bool                     m_is_frame_valid;
+  ISO_15765_2_PCI_FCF_Flag m_fcf_flag;
 };
 
 #endif //__UDS_MESSAGE_H__at the end of transmission sets to true

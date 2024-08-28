@@ -213,6 +213,7 @@ private:
   std::deque <UDS_Frame*> m_uds_rx_buffer;
 
   DID_Repository m_did_repository;
-  Status        m_status;
+  Status         m_status;
+  uint8_t        m_frames_remaining_until_next_fcf;
 };
 #endif //__UDS_H__

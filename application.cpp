@@ -148,8 +148,10 @@ void Application::CheckModifiedDids()
       case DID_Instance::DID_Datatype_std_string:
       case DID_Instance::DID_Datatype_c_string:
       {
+        volatile auto t{0};
         const char* str_value{reinterpret_cast<const char*>((*it)->GetPtrToConstData())};
-        ss << "STR." << str_value;
+        ss << "STR." << str_value << '\n';
+        std::cout << ss.str() << std::endl;
       }
       break;
       case DID_Instance::DID_Datatype_float:
@@ -167,19 +169,19 @@ void Application::CheckModifiedDids()
       case DID_Instance::DID_Datatype_integer:
       {
         int32_t i_value{*(int32_t*)(*it)->GetPtrToData()};
-        ss << "INT." << i_value; 
+        ss << "INT." << std::hex << i_value; 
       }
       break;
       case DID_Instance::DID_Datatype_unsigned_integer:
       {
         int64_t ui_value{*(uint32_t*)(*it)->GetPtrToData()};
-        ss << "INT." << ui_value;   //UINT.
+        ss << "UINT." << std::hex << ui_value;   //UINT.
       }
       break;
       case DID_Instance::DID_Datatype_bool:
       {
         bool b_value{*(bool*)(*it)->GetPtrToData()};
-        ss << "BOOL." << b_value; 
+        ss << "BOOL." << b_value ? "TRUE" : "FALSE"; 
       }
       break;
     }

@@ -27,11 +27,11 @@ CAN_Frame::Source UDS_Frame::GetSource() const
   return m_source;
 }
 
-void UDS_Frame::SetProtocolInformation(UDS_Frame::PCI a_protocol_information)
+void UDS_Frame::SetProtocolInformation(ISO_15765_2_PCI a_protocol_information)
 {
   m_protocol_information = a_protocol_information;
 }
-UDS_Frame::PCI UDS_Frame::GetProtocolInformation()
+ISO_15765_2_PCI UDS_Frame::GetProtocolInformation()
 {
   return m_protocol_information;
 }
@@ -82,11 +82,11 @@ bool UDS_Frame::IsFrameValid()
   return m_is_frame_valid;
 }
 
-void UDS_Frame::SetFlagOfFCF(const FCF_Flag a_flag)
+void UDS_Frame::SetFlagOfFCF(const ISO_15765_2_PCI_FCF_Flag a_flag)
 {
   m_fcf_flag = a_flag;
 }
-UDS_Frame::FCF_Flag UDS_Frame::GetFlagOfFCF() const
+ISO_15765_2_PCI_FCF_Flag UDS_Frame::GetFlagOfFCF() const
 {
   return m_fcf_flag;
 }
