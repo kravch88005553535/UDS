@@ -150,10 +150,11 @@ public:
   void        CalculateSecurityAccessFullKey();
   uint64_t    GetSecurityAccessKey();
   bool        CompareSecurityAccessKey(uint64_t a_key);
+  DID_Repository& GetDIDRepository();
 protected:
   UDS();
   virtual ~UDS() = default;
-
+  
   bool          m_is_busy;
   
   SessionType   m_sessiontype;
@@ -175,6 +176,7 @@ protected:
   const uint8_t m_block_size_this_device; 
   uint8_t       m_block_size_tester;
 
+  DID_Repository m_did_repository;
   bool          m_is_rx_enabled;
   bool          m_is_tx_enabled;
   //CommunicationControl m_cc_status;
@@ -204,7 +206,6 @@ public:
   void        SetStatus(const Status a_status);
   Status      GetStatus();
 
-  DID_Repository& GetDIDRepository();
 private:
   void MakePositiveResponse(const Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size, const CAN_Frame::Source a_source);
   void MakeNegativeResponse(const Service a_rejected_sid, UDS::NegativeResponseCode a_nrc, const CAN_Frame::Source a_source);
@@ -212,7 +213,6 @@ private:
   std::deque <UDS_Frame*> m_uds_tx_buffer;
   std::deque <UDS_Frame*> m_uds_rx_buffer;
 
-  DID_Repository m_did_repository;
   Status         m_status;
   uint8_t        m_frames_remaining_until_next_fcf;
 };

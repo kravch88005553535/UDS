@@ -6,26 +6,13 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
-
-
 #include <iostream>
 #include <sstream>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
 #include <sys/fcntl.h>
-#include <sys/socket.h>
-#include <linux/can.h>
-#include <linux/can/raw.h>
-
 #include "can_frame.h"
-
 #include "uds.h"
-
+   
 class Application
 {
 public:
@@ -41,8 +28,12 @@ private:
 
   int                     m_uds_socket;
   sockaddr_un             m_uds_socket_address;
+  
   int                     m_diagmesg_socket;
   sockaddr_un             m_diagmesg_socket_address;
+
+  int                     m_cmd_socket;
+  sockaddr_un             m_cmd_socket_address;
 
   UDSOnCAN&               mref_uds;
   DID_Repository&         m_did_repository;
@@ -53,6 +44,7 @@ private:
   void CreateSocketUDS();
   void CreateSocketDiagMesg();
   void CheckModifiedDids();
+  void RecieveDataFromDiagSocket();
   void CheckSocketForNewRxData();
   void TransmitCanFrameToSocket();
 };

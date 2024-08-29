@@ -37,7 +37,16 @@ enum DID: uint16_t
   DID_SystemSupplierBaseConfiguration                           = 0xF1F0,
   DID_BaseSoftwareVersion                                       = 0xFD10,
   DID_FirmwareUpdateStatus                                      = 0xF1A9,
-  DID_MapUpdateStatus                                           = 0xF1AA
+  DID_MapUpdateStatus                                           = 0xF1AA,
+  DID_RestartFromWatchdogError                                  = 0xF010,
+  DID_HighVoltageError                                          = 0xF011,
+  DID_LowVoltageError                                           = 0xF012,
+  DID_GNSSModuleError                                           = 0xF013,
+  DID_GyroAccelAccessError                                      = 0xF014,
+  DID_BTPFirmwareUpdateError                                    = 0xF015,
+  DID_KamazReliefMapLoadError                                   = 0xF016,
+  DID_MCUFirmwareIntegrityError                                 = 0xF017,
+  DID_BipError                                                  = 0xF018
 };
 
 class DID_Instance

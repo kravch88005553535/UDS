@@ -227,45 +227,62 @@ uint64_t UDS::GetSecurityAccessKey()
 {
   return  m_key;
 }
+DID_Repository& UDS::GetDIDRepository()
+{
+  return m_did_repository;
+}
 
 
 UDSOnCAN::UDSOnCAN()
   : UDS{}
   , m_status{Status_ok}
 {
-  m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareConfigurationNumber,        32, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareConfigurationVersionNumber, 32, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_FirmwareUpdateMode,                                       sizeof(bool),  DID_Instance::DID_Datatype_bool, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_MapUpdateMode,                                            sizeof(bool),  DID_Instance::DID_Datatype_bool, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_RS232_1_BaudrateSetup,                                    sizeof(unsigned),  DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_RS232_2_BaudrateSetup,                                    sizeof(unsigned),  DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_RS485_BaudrateSetup,                                      sizeof(unsigned),  DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_WiFiPassword,                                             64, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_DiagData,                                                 2,   DID_Instance::DID_Datatype_raw_data, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareNumber,                     20,  DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareVersionNumber,              32,  DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_SystemSupplierIdentifierDataIdentifier,                   32,  DID_Instance::DID_Datatype_c_string, DID_Instance::Readonly);
-  m_did_repository.AddDataIdentifier(DID_ECUManufacturingDate,                                     16,  DID_Instance::DID_Datatype_c_string, DID_Instance::Readonly);
-  m_did_repository.AddDataIdentifier(DID_ECUSerialNumber,                                          253, DID_Instance::DID_Datatype_c_string, DID_Instance::Readonly);
-  m_did_repository.AddDataIdentifier(DID_VIN,                                                      17, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUHardwareNumber,                     32, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_SystemSupplierECUHardwareNumber,                          32, DID_Instance::DID_Datatype_c_string, DID_Instance::Readonly);
-  m_did_repository.AddDataIdentifier(DID_SystemSupplierECUHardwareVersionNumber,                   16, DID_Instance::DID_Datatype_c_string, DID_Instance::Readonly);
-  m_did_repository.AddDataIdentifier(DID_SystemSupplierECUSoftwareNumber,                          128, DID_Instance::DID_Datatype_c_string, DID_Instance::Readonly);
-  m_did_repository.AddDataIdentifier(DID_SystemSupplierECUSoftwareVersionNumber,                   128, DID_Instance::DID_Datatype_c_string, DID_Instance::Readonly);
-  m_did_repository.AddDataIdentifier(DID_ExhaustRegulationOrTypeApprovalNumber,                    64, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_SystemNameOrEngineType,                                   64, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_RepairShopCodeOrTesterSerialNumber,                       32, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_ProgrammingDate,                                          16, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_ECUInstallationDate,                                      16, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_SystemSupplierBaseConfiguration,                          18, DID_Instance::DID_Datatype_c_string, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_BaseSoftwareVersion,                                      128, DID_Instance::DID_Datatype_c_string, DID_Instance::Readonly);
-//lock necessary dids
+  m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareConfigurationNumber,        32,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareConfigurationVersionNumber, 32,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_FirmwareUpdateMode,                                       sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_MapUpdateMode,                                            sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_RS232_1_BaudrateSetup,                                    sizeof(unsigned), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_RS232_2_BaudrateSetup,                                    sizeof(unsigned), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_RS485_BaudrateSetup,                                      sizeof(unsigned), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_WiFiPassword,                                             64,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_DiagData,                                                 2,                DID_Instance::DID_Datatype_raw_data,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareNumber,                     20,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareVersionNumber,              32,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_SystemSupplierIdentifierDataIdentifier,                   32,               DID_Instance::DID_Datatype_c_string,         DID_Instance::Readonly);
+  m_did_repository.AddDataIdentifier(DID_ECUManufacturingDate,                                     16,               DID_Instance::DID_Datatype_c_string,         DID_Instance::Readonly);
+  m_did_repository.AddDataIdentifier(DID_ECUSerialNumber,                                          253,              DID_Instance::DID_Datatype_c_string,         DID_Instance::Readonly);
+  m_did_repository.AddDataIdentifier(DID_VIN,                                                      17,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUHardwareNumber,                     32,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_SystemSupplierECUHardwareNumber,                          32,               DID_Instance::DID_Datatype_c_string,         DID_Instance::Readonly);
+  m_did_repository.AddDataIdentifier(DID_SystemSupplierECUHardwareVersionNumber,                   16,               DID_Instance::DID_Datatype_c_string,         DID_Instance::Readonly);
+  m_did_repository.AddDataIdentifier(DID_SystemSupplierECUSoftwareNumber,                          128,              DID_Instance::DID_Datatype_c_string,         DID_Instance::Readonly);
+  m_did_repository.AddDataIdentifier(DID_SystemSupplierECUSoftwareVersionNumber,                   128,              DID_Instance::DID_Datatype_c_string,         DID_Instance::Readonly);
+  m_did_repository.AddDataIdentifier(DID_ExhaustRegulationOrTypeApprovalNumber,                    64,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_SystemNameOrEngineType,                                   64,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_RepairShopCodeOrTesterSerialNumber,                       32,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_ProgrammingDate,                                          16,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_ECUInstallationDate,                                      16,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_SystemSupplierBaseConfiguration,                          18,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_BaseSoftwareVersion,                                      128,              DID_Instance::DID_Datatype_c_string,         DID_Instance::Readonly);
+  m_did_repository.AddDataIdentifier(DID_FirmwareUpdateStatus,                                     128,              DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_MapUpdateStatus,                                          128,              DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_RestartFromWatchdogError,                                 1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_HighVoltageError,                                         1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_LowVoltageError,                                          1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_GNSSModuleError,                                          1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_GyroAccelAccessError,                                     1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_BTPFirmwareUpdateError,                                   1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_KamazReliefMapLoadError,                                  1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_MCUFirmwareIntegrityError,                                1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_BipError,                                                 1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  {
+
+  //lock necessary dids
   uint32_t default_async_interfaces_speed_kbaud{19200};
   m_did_repository.WriteDataIdentifier(DID_RS232_1_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
   m_did_repository.WriteDataIdentifier(DID_RS232_2_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
   m_did_repository.WriteDataIdentifier(DID_RS485_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
-  {
+
     const char* string = "123dfklgdfskgds g";
     volatile uint8_t str_len = strlen(string);
 
@@ -531,10 +548,7 @@ void UDSOnCAN::Execute()
         MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupported, source);
       break;
     }
-    //get last uds instance
-    //if multiple frame - calculate frames, get data & execute it
-    //add frame/frames to m_uds_tx_buffer
-     delete uds_frame;
+    delete uds_frame;
   }
 }
 bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
@@ -808,10 +822,6 @@ UDSOnCAN::Status UDSOnCAN::GetStatus()
 {
   return m_status;
 }
-DID_Repository& UDSOnCAN::GetDIDRepository()
-{
-  return m_did_repository;
-}
 void UDSOnCAN::MakePositiveResponse(const UDS::Service a_sid, const uint8_t* a_data_ptr, const uint32_t a_data_size, const CAN_Frame::Source a_source)
 {
   if(a_data_size <= 6)
@@ -862,4 +872,3 @@ void UDSOnCAN::MakeNegativeResponse(UDS::Service a_rejected_sid, UDS::NegativeRe
   m_uds_tx_buffer.push_back(negativeresponse_frame); //or push front
   delete[] data;
 }
-

@@ -15,6 +15,8 @@ Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx
   , m_uds_socket_address{}
   , m_diagmesg_socket{}
   , m_diagmesg_socket_address{}
+  , m_cmd_socket{}
+  , m_cmd_socket_address{}
   , m_did_repository{mref_uds.GetDIDRepository()}
 {}
 Application::~Application()
@@ -30,6 +32,7 @@ Application::~Application()
 
 bool Application::Execute()
 {
+  std::system("clear");
   CreateSocketUDS();
   CreateSocketDiagMesg();
 
@@ -54,8 +57,8 @@ bool Application::Execute()
         m_tx_can_deque.push_back(it); //need check
       }
     }
-
-    switch (mref_uds.GetStatus())
+    auto status{mref_uds.GetStatus()};
+    switch(status)
     {
       case UDSOnCAN::Status_is_executing_rx_ff:
         TransmitCanFrameToSocket();
@@ -74,10 +77,10 @@ bool Application::Execute()
       
       default:
         TransmitCanFrameToSocket();
-        //std::cout << " " << m_tx_can_deque.size() << '\n';
       break;
     }
     CheckModifiedDids();
+    RecieveDataFromDiagSocket();
   }
   return 0;
 }
@@ -111,7 +114,7 @@ void Application::CreateSocketUDS()
 }
 void Application::CreateSocketDiagMesg()
 {
-    printf("Creating DiagMesg socket... ");
+  printf("Creating DiagMesg socket... ");
   if ((m_diagmesg_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
     perror("Socket");
     //return 1;
@@ -133,6 +136,36 @@ void Application::CreateSocketDiagMesg()
     //exit(1);
   }
   printf("Connected to DiagMesg socket.\n\n");
+
+
+
+  printf("Creating CmdTest socket... ");
+  if ((m_cmd_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+    perror("Socket");
+    //return 1;
+  }
+  printf("Done\n");
+  printf("Trying to connect...\n");
+  m_cmd_socket_address.sun_family = AF_UNIX;
+  auto cmd_socket_address{"/tmp/cmd.sock"};
+   strcpy(m_cmd_socket_address.sun_path, cmd_socket_address);
+  volatile auto length{strlen(m_cmd_socket_address.sun_path) + sizeof(m_cmd_socket_address.sun_family)};
+  int cmd_status = fcntl(m_cmd_socket, F_SETFL, fcntl(m_cmd_socket, F_GETFL, 0) | O_NONBLOCK);
+  if (cmd_status == -1){
+    perror("calling fcntl");
+    // handle the error.  By the way, I've never seen fcntl fail in this way
+  }
+  if (connect(m_cmd_socket, (sockaddr*)&m_cmd_socket_address, length) == -1)
+  {
+    perror("connect");
+    //exit(1);
+  }
+  printf("Connected to CmdTest socket.\n\n");
+
+  //std::string tx_data{"DID.F1A3.BOOL.TRUE\n"};
+  // auto string_length{strlen(tx_data.c_str())+1};
+  // if(send(m_cmd_socket, tx_data.c_str(), string_length, 0) == -1)
+  //   perror("send");
 }
 void Application::CheckModifiedDids()
 {
@@ -142,6 +175,7 @@ void Application::CheckModifiedDids()
     std::stringstream ss;
     const DID_Instance::DID_Datatype datatype{(*it)->GetDataType()};
     const DID did_number{(*it)->GetDID()};
+    //did_number == 0X0200 ? did_number = (DID)0xF1A2: true;
     ss << "DID." << std::hex << (uint16_t)did_number  << ".";
     switch (datatype)
     {
@@ -150,7 +184,7 @@ void Application::CheckModifiedDids()
       {
         volatile auto t{0};
         const char* str_value{reinterpret_cast<const char*>((*it)->GetPtrToConstData())};
-        ss << "STR." << str_value ;//<< '\n';
+        ss << "STR." << str_value; //<< '\n';
       }
       break;
       case DID_Instance::DID_Datatype_float:
@@ -184,42 +218,76 @@ void Application::CheckModifiedDids()
       }
       break;
     }
-    
-    std::string transmit_data{ss.str()};
-    if(!transmit_data.empty())
-    {
-      std::cout << std::endl << ss.str() << std::endl;
-    }
+    std::string transmit_data{ss.str()};    
     auto string_length{strlen(transmit_data.c_str())+1};
-    if(send(m_diagmesg_socket, (transmit_data +'\n').c_str(), string_length, 0) == -1) {
-    perror("send");
-    //exit(1);
+    if(send(m_diagmesg_socket, (transmit_data +'\n').c_str(), string_length, 0) == -1)
+      perror("send");
   }
-//  std::cout << "DIAG TX < " << transmit_data <<'\n';
+}
+void Application::RecieveDataFromDiagSocket()
+{
+  static std::string recieved_data{};
+  char string[100];
+  auto t{recv(m_diagmesg_socket, string, 100, 0)};
+  if (t > 0)
+  {
+    recieved_data.append(string);
+    string[t] = '\0';
+    //printf("DIAG RX>%s", string);
   }
-  
-  // ss << "DID." << "0200" << "." << "BOOL." << value;
-  // std::string transmit_data{ss.str()};
-  // auto string_length{strlen(transmit_data.c_str())+1};
-  // if(send(m_diagmesg_socket, (transmit_data +'\n').c_str(), string_length, 0) == -1) {
-  // // perror("send");
-  // //exit(1);
-  // }
-  // std::cout << "DIAG TX < " << transmit_data <<'\n';
 
-  // char string[100];
-  // auto t{recv(m_diagmesg_socket, string, 100, 0)};
-  // if (t > 0)
-  // {
-  //     string[t] = '\0';
-  //     printf("DIAG RX>%s", string);
-  // } 
-  // else
-  // {
-  //     if (t < 0) perror("recv");
-  //     else printf("Server closed connection\n");
-  //     //exit(1);
-  // }
+  std::size_t newline_index{recieved_data.find('\n')};
+  if(newline_index and recieved_data.size())
+  {
+    volatile bool is_string_valid{true};
+    
+    std::string recieved_data_substring{recieved_data.substr(0, newline_index)};
+    recieved_data = recieved_data.substr(newline_index+1);
+
+    std::size_t first_dot_index{recieved_data_substring.find('.')};
+    std::string did_text{recieved_data_substring.substr(0,first_dot_index)};
+    recieved_data_substring = recieved_data_substring.substr(first_dot_index+1);
+
+    std::size_t second_dot_index{recieved_data_substring.find('.')};
+    std::string did_substring{recieved_data_substring.substr(0,second_dot_index)};
+    did_substring.insert(0, "0x");
+    volatile DID did{static_cast<DID>(std::stoul(did_substring, nullptr, 16))};
+    recieved_data_substring = recieved_data_substring.substr(second_dot_index+1);   //DID OK
+
+    std::size_t third_dot_index{recieved_data_substring.find('.')};
+    std::string datatype{recieved_data_substring.substr(0,third_dot_index)};
+    recieved_data_substring = recieved_data_substring.substr(third_dot_index+1);
+
+    if(datatype == "STR")
+    {
+      m_did_repository.WriteDataIdentifier(did,recieved_data_substring);
+    }
+    else if(datatype == "BOOL")
+    {
+      const bool value {recieved_data_substring == "TRUE" ? true : false};
+      m_did_repository.WriteDataIdentifier(did,(const uint8_t*)&value, sizeof(value));
+    }
+    else if(datatype == "INT")
+    {
+      const int value {std::stoi(recieved_data_substring)};
+      m_did_repository.WriteDataIdentifier(did,(const uint8_t*)&value, sizeof(value));
+    }
+    else if(datatype == "UINT")
+    {
+      const unsigned value {(unsigned)std::stoul(recieved_data_substring)};
+      m_did_repository.WriteDataIdentifier(did,(const uint8_t*)&value, sizeof(value));
+    }
+    else if(datatype == "FLT")
+    {
+      const float value {std::stof(recieved_data_substring)};
+      m_did_repository.WriteDataIdentifier(did,(const uint8_t*)&value, sizeof(value));
+    }
+    else if(datatype == "DBL")
+    {
+      const double value {std::stod(recieved_data_substring)};
+      m_did_repository.WriteDataIdentifier(did,(const uint8_t*)&value, sizeof(value));
+    }
+  }  
 }
 void Application::CheckSocketForNewRxData()
 {  
@@ -231,14 +299,14 @@ void Application::CheckSocketForNewRxData()
     recieved_data.append(string);
       string[t] = '\0';
       printf("RX>%s", string);
-  } 
+  }
   // else {
   //     if (t < 0) perror("recv");
   //     else printf("Server closed connection\n");
   //     //exit(1);
   // }
 
-  // recieved_data.append("001#A34E3FF8#thjdkb\n"); //only for test
+  //recieved_data.append("001#A34E3FF8#thjdkb\n"); //only for test
   //recieved_data.append(m_rx_socket_queue.back());
   std::size_t newline_index{recieved_data.find('\n')};
   if(newline_index and recieved_data.size())
