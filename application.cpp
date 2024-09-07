@@ -88,28 +88,23 @@ bool Application::Execute()
 void Application::CreateSocketUDS()
 {
   printf("Creating UDS socket... ");
-  if ((m_uds_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+  if ((m_uds_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
     perror("Socket");
-    //return 1;
-  }
   printf("Done\n");
   printf("Trying to connect...\n");
   m_uds_socket_address.sun_family = AF_UNIX;
   auto socket_address{"/tmp/uds.sock"};
-   strcpy(m_uds_socket_address.sun_path, socket_address);
-  volatile auto len{strlen(m_uds_socket_address.sun_path) + sizeof(m_uds_socket_address.sun_family)};
+  strcpy(m_uds_socket_address.sun_path, socket_address);
+  
+  auto len{strlen(m_uds_socket_address.sun_path) + sizeof(m_uds_socket_address.sun_family)};
   
   int status = fcntl(m_uds_socket, F_SETFL, fcntl(m_uds_socket, F_GETFL, 0) | O_NONBLOCK);
-  if (status == -1){
+  if(status == -1)
     perror("calling fcntl");
-    // handle the error.  By the way, I've never seen fcntl fail in this way
-  }
   
-  if (connect(m_uds_socket, (sockaddr*)&m_uds_socket_address, len) == -1)
-  {
+  if(connect(m_uds_socket, (sockaddr*)&m_uds_socket_address, len) == -1)
     perror("connect");
-    //exit(1);
-  }
+  
   printf("Connected to UDS socket.\n\n");
 }
 void Application::CreateSocketDiagMesg()
@@ -226,7 +221,7 @@ void Application::CheckModifiedDids()
 }
 void Application::RecieveDataFromDiagSocket()
 {
-  static std::string recieved_data{};
+  static std::string recieved_data("");
   char string[100];
   auto t{recv(m_diagmesg_socket, string, 100, 0)};
   if (t > 0)
@@ -291,36 +286,30 @@ void Application::RecieveDataFromDiagSocket()
 }
 void Application::CheckSocketForNewRxData()
 {  
-  static std::string recieved_data{};
-  char string[100];
-  auto t{recv(m_uds_socket, string, 100, 0)};
-  if (t > 0)
-  {
-    recieved_data.append(string);
-      string[t] = '\0';
-      printf("RX>%s", string);
-  }
-  // else {
-  //     if (t < 0) perror("recv");
-  //     else printf("Server closed connection\n");
-  //     //exit(1);
-  // }
+  static std::string recieved_data("");
 
-  //recieved_data.append("001#A34E3FF8#thjdkb\n"); //only for test
-  //recieved_data.append(m_rx_socket_queue.back());
+  constexpr auto recieve_size{100};
+  
+  char string[recieve_size];
+  auto t{recv(m_uds_socket, string, recieve_size, 0)};
+  
+  if(t > 0)
+    recieved_data.append(string);
+    
   std::size_t newline_index{recieved_data.find('\n')};
-  if(newline_index and recieved_data.size())
+  if(newline_index != std::string::npos and recieved_data.size())
   {
     volatile bool is_frame_valid{true};
 
     std::string recieved_data_substring{recieved_data.substr(0, newline_index)};
-    recieved_data = recieved_data.substr(newline_index+1);    
     
-    std::size_t first_grid_index{recieved_data_substring.find('#')};
+    const auto end_iterator{recieved_data.begin() + newline_index + 1};
+    recieved_data.erase(recieved_data.begin(), end_iterator);
 
-    CAN_Frame::Source source{};// источник 1 байт  CAN1..3
+    std::size_t first_grid_index{recieved_data_substring.find('#')};
+    CAN_Frame::Source source{};
     source = static_cast<CAN_Frame::Source>(std::stoul(recieved_data_substring.substr(0,first_grid_index)));
-    if(source < CAN_Frame::Source_CAN1 || source >= CAN_Frame::Source_CAN3)
+    if(source < CAN_Frame::Source_CAN1 or source >= CAN_Frame::Source_CAN3)
     {
       source = CAN_Frame::Source_Unknown;
       is_frame_valid = false;
@@ -332,12 +321,13 @@ void Application::CheckSocketForNewRxData()
     std::size_t second_grid_index{recieved_data_substring.find('#')};
     
     uint32_t rx_can_id{};
-    if(second_grid_index >=3 && second_grid_index <=8)
+    if(second_grid_index >=3 && second_grid_index <= 8)
     {
       std::string id{recieved_data_substring.substr(0,second_grid_index)};
       rx_can_id = std::stoul(id, nullptr, 16);
     }
-//    else is_frame_valid = false;
+    if(rx_can_id != m_ecu_rx_can_id)
+      is_frame_valid = false;
 
 //          ---------------------------------//RX_CAN_ID OK//------------------------------------------
 
@@ -353,19 +343,30 @@ void Application::CheckSocketForNewRxData()
       const char* substring{recieved_data_substring.c_str()};
       for(auto i{0}; i < length; i+=3)
       {
-        std::string byte{"0x"};
+        std::string byte("0x");
         byte.append(recieved_data_substring.substr(i,2));
         auto index{i/3};
         can_data[index] = std::stoul(byte, nullptr, 16);
       }
     }
     else is_frame_valid = false;
+
     //   -------------------------------------//DATA OK//-------------------------------------------
+
     if(is_frame_valid)
     {
       CAN_Frame* p_frame{new CAN_Frame(source, rx_can_id, &can_data[0])};
-      m_rx_can_deque.push_back(p_frame);   
+      m_rx_can_deque.push_back(p_frame);
+      std::cout << std::hex << "[VALID] RX> " << (int)source << '#' << rx_can_id << '#' << (int)can_data[0] << '.' << (int)can_data[1] << '.'
+                                                                                        << (int)can_data[2] << '.' << (int)can_data[3] << '.'
+                                                                                        << (int)can_data[4] << '.' << (int)can_data[5] << '.'
+                                                                                        << (int)can_data[6] << '.' << (int)can_data[7] << std::endl;
     }
+    else
+      std::cout << std::hex << "[NOT VALID] RX> " << (int)source << '#' << rx_can_id << '#' << (int)can_data[0] << '.' << (int)can_data[1] << '.'
+                                                                                        << (int)can_data[2] << '.' << (int)can_data[3] << '.'
+                                                                                        << (int)can_data[4] << '.' << (int)can_data[5] << '.'
+                                                                                        << (int)can_data[6] << '.' << (int)can_data[7] << std::endl;
   }
 }
 void Application::TransmitCanFrameToSocket()
@@ -377,7 +378,7 @@ void Application::TransmitCanFrameToSocket()
   CAN_Frame* can_frame = m_tx_can_deque.front();
   can_frame->SetID(m_ecu_tx_can_id); //set ECU ID to frame
 
-  std::string transmit_data{};
+  std::string transmit_data("");
   uint32_t source{static_cast<uint32_t>(can_frame->GetSource())};// источник 1 байт  CAN1..3
   std::stringstream stringstream;
   
@@ -400,11 +401,12 @@ void Application::TransmitCanFrameToSocket()
   }
   
   transmit_data.append(stringstream.str());
-  std::cout << "TX<" << transmit_data << std::endl;
   auto string_length{strlen(transmit_data.c_str())+1};
-  if (send(m_uds_socket, (transmit_data +'\n').c_str(), string_length, 0) == -1) {
+  auto bts = send(m_uds_socket, (transmit_data +'\n').c_str(), string_length, 0);
+  if (bts == -1) 
     perror("send");
-  }
-  
+  else
+    std::cout << "TX< " << transmit_data << std::endl;
+
   m_tx_can_deque.pop_front(); 
 }

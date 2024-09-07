@@ -264,8 +264,8 @@ UDSOnCAN::UDSOnCAN()
   m_did_repository.AddDataIdentifier(DID_ECUInstallationDate,                                      16,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_SystemSupplierBaseConfiguration,                          18,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_BaseSoftwareVersion,                                      128,              DID_Instance::DID_Datatype_c_string,         DID_Instance::Readonly);
-  m_did_repository.AddDataIdentifier(DID_FirmwareUpdateStatus,                                     128,              DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_MapUpdateStatus,                                          128,              DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_FirmwareUpdateStatus,                                     100,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_MapUpdateStatus,                                          100,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_RestartFromWatchdogError,                                 1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_HighVoltageError,                                         1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_LowVoltageError,                                          1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
