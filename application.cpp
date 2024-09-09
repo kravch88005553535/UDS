@@ -1,4 +1,5 @@
 #include <sstream>
+#include <ios>
 #include "application.h"
 #include "program_timer.h"
 #include "did.h"
@@ -35,9 +36,10 @@ bool Application::Execute()
   std::system("clear");
   CreateSocketUDS();
   CreateSocketDiagMesg();
-
+  static std::ios_base::fmtflags coutformatflags{std::cout.flags()};
   while (1)
   {
+    std::cout.flags(coutformatflags);
     CheckSocketForNewRxData();
     if(!m_rx_can_deque.empty())
     {
@@ -48,7 +50,7 @@ bool Application::Execute()
     }
 
     mref_uds.Execute();
-    
+ 
     while(!mref_uds.IsTXBufferOfUDSEmpty())
     {
       std::vector<CAN_Frame*>frames{mref_uds.ConvertUDSFrameToCAN()}; // return array of can frames via std::vector or std::array
@@ -228,7 +230,7 @@ void Application::RecieveDataFromDiagSocket()
   {
     recieved_data.append(string);
     string[t] = '\0';
-    //printf("DIAG RX>%s", string);
+    printf("DIAG RX>%s", string);
   }
 
   std::size_t newline_index{recieved_data.find('\n')};
@@ -291,53 +293,67 @@ void Application::CheckSocketForNewRxData()
   constexpr auto recieve_size{100};
   
   char string[recieve_size];
-  auto t{recv(m_uds_socket, string, recieve_size, 0)};
-  
+  auto t = recv(m_uds_socket, string, recieve_size, 0);
+
   if(t > 0)
+  {
+    string[t] = '\0';
     recieved_data.append(string);
-    
-  std::size_t newline_index{recieved_data.find('\n')};
-  if(newline_index != std::string::npos and recieved_data.size())
+    //std::cout << "recieved " << (int64_t)t << " bytes of data" << std::endl;
+    //for(volatile auto i{0}; i < t; ++i)
+    //  std::cout << std::dec << (unsigned)string[i] << ' ';
+    //std::cout << '\n';
+  }
+  
+  const auto newline_index{recieved_data.find('\n')};
+  if(recieved_data.size() and newline_index != std::string::npos)
   {
     volatile bool is_frame_valid{true};
 
     std::string recieved_data_substring{recieved_data.substr(0, newline_index)};
-    
     const auto end_iterator{recieved_data.begin() + newline_index + 1};
     recieved_data.erase(recieved_data.begin(), end_iterator);
-
-    std::size_t first_grid_index{recieved_data_substring.find('#')};
-    CAN_Frame::Source source{};
-    source = static_cast<CAN_Frame::Source>(std::stoul(recieved_data_substring.substr(0,first_grid_index)));
-    if(source < CAN_Frame::Source_CAN1 or source >= CAN_Frame::Source_CAN3)
-    {
-      source = CAN_Frame::Source_Unknown;
-      is_frame_valid = false;
-    }
-    else
-//          ---------------------------------//SOURCE OK//---------------------------------------------
-
-    recieved_data_substring = recieved_data_substring.substr(first_grid_index+1);
-    std::size_t second_grid_index{recieved_data_substring.find('#')};
     
+    std::size_t first_grid_index{recieved_data_substring.find('#')};
+    if(first_grid_index == std::string::npos)
+      is_frame_valid = false;
+
+    CAN_Frame::Source source{};
+    if(is_frame_valid)
+    {
+      source = static_cast<CAN_Frame::Source>(std::stoul(recieved_data_substring.substr(0,first_grid_index)));
+      if(source < CAN_Frame::Source_CAN1 or source >= CAN_Frame::Source_CAN3)
+      {
+        source = CAN_Frame::Source_Unknown;
+        is_frame_valid = false;
+      }//          ---------------------------------//SOURCE OK//---------------------------------------------
+    }
+
+    std::size_t second_grid_index{0};
+    if(is_frame_valid)
+    {
+      recieved_data_substring = recieved_data_substring.substr(first_grid_index+1);
+      second_grid_index = recieved_data_substring.find('#');
+      if(second_grid_index == std::string::npos)
+        is_frame_valid = false;
+    }
+        
     uint32_t rx_can_id{};
-    if(second_grid_index >=3 && second_grid_index <= 8)
+    if(is_frame_valid and second_grid_index >= 1 and second_grid_index <= 8)
     {
       std::string id{recieved_data_substring.substr(0,second_grid_index)};
-      rx_can_id = std::stoul(id, nullptr, 16);
+      rx_can_id = std::stoul(id, nullptr, 16);//          ---------------------------------//RX_CAN_ID OK//------------------------------------------
     }
     if(rx_can_id != m_ecu_rx_can_id)
-      is_frame_valid = false;
-
-//          ---------------------------------//RX_CAN_ID OK//------------------------------------------
+      is_frame_valid = false; 
 
     constexpr auto can_frame_data_size_bytes{8};
-    recieved_data_substring = recieved_data_substring.substr(second_grid_index+1);
     uint8_t can_data[can_frame_data_size_bytes]{};
+
+    recieved_data_substring = recieved_data_substring.substr(second_grid_index+1); 
     uint8_t length{static_cast<uint8_t>(recieved_data_substring.length())};
     constexpr auto min_substring_size{3};
     constexpr auto max_substring_size{23};
-    
     if(length >= min_substring_size and length <= max_substring_size)
     {
       const char* substring{recieved_data_substring.c_str()};
@@ -346,27 +362,25 @@ void Application::CheckSocketForNewRxData()
         std::string byte("0x");
         byte.append(recieved_data_substring.substr(i,2));
         auto index{i/3};
-        can_data[index] = std::stoul(byte, nullptr, 16);
+        can_data[index] = std::stoul(byte, nullptr, 16);//   -------------------------------------//DATA OK//-------------------------------------------
       }
     }
     else is_frame_valid = false;
-
-    //   -------------------------------------//DATA OK//-------------------------------------------
 
     if(is_frame_valid)
     {
       CAN_Frame* p_frame{new CAN_Frame(source, rx_can_id, &can_data[0])};
       m_rx_can_deque.push_back(p_frame);
-      std::cout << std::hex << "[VALID] RX> " << (int)source << '#' << rx_can_id << '#' << (int)can_data[0] << '.' << (int)can_data[1] << '.'
-                                                                                        << (int)can_data[2] << '.' << (int)can_data[3] << '.'
-                                                                                        << (int)can_data[4] << '.' << (int)can_data[5] << '.'
-                                                                                        << (int)can_data[6] << '.' << (int)can_data[7] << std::endl;
+      // std::cout << std::hex << "[VALID] RX> " << (int)source << '#' << rx_can_id << '#' << (int)can_data[0] << '.' << (int)can_data[1] << '.'
+      //                                                                                   << (int)can_data[2] << '.' << (int)can_data[3] << '.'
+      //                                                                                   << (int)can_data[4] << '.' << (int)can_data[5] << '.'
+      //                                                                                   << (int)can_data[6] << '.' << (int)can_data[7] << std::endl;
     }
-    else
-      std::cout << std::hex << "[NOT VALID] RX> " << (int)source << '#' << rx_can_id << '#' << (int)can_data[0] << '.' << (int)can_data[1] << '.'
-                                                                                        << (int)can_data[2] << '.' << (int)can_data[3] << '.'
-                                                                                        << (int)can_data[4] << '.' << (int)can_data[5] << '.'
-                                                                                        << (int)can_data[6] << '.' << (int)can_data[7] << std::endl;
+    // else
+    //   std::cout << std::hex << "[NOT VALID] RX> " << (int)source << '#' << rx_can_id << '#' << (int)can_data[0] << '.' << (int)can_data[1] << '.'
+    //                                                                                     << (int)can_data[2] << '.' << (int)can_data[3] << '.'
+    //                                                                                     << (int)can_data[4] << '.' << (int)can_data[5] << '.'
+    //                                                                                     << (int)can_data[6] << '.' << (int)can_data[7] << std::endl;
   }
 }
 void Application::TransmitCanFrameToSocket()
@@ -400,13 +414,14 @@ void Application::TransmitCanFrameToSocket()
       stringstream << ".";
   }
   
+  stringstream << "\n";
   transmit_data.append(stringstream.str());
   auto string_length{strlen(transmit_data.c_str())+1};
-  auto bts = send(m_uds_socket, (transmit_data +'\n').c_str(), string_length, 0);
+  auto bts = send(m_uds_socket, transmit_data.c_str(), string_length, 0);
   if (bts == -1) 
     perror("send");
-  else
-    std::cout << "TX< " << transmit_data << std::endl;
+  // else
+  //   std::cout << "TX< " << transmit_data << std::endl;
 
   m_tx_can_deque.pop_front(); 
 }
