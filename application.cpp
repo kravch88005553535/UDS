@@ -416,12 +416,12 @@ void Application::TransmitCanFrameToSocket()
   
   stringstream << "\n";
   transmit_data.append(stringstream.str());
-  auto string_length{strlen(transmit_data.c_str())+1};
+  volatile auto string_length{strlen(transmit_data.c_str())};
   auto bts = send(m_uds_socket, transmit_data.c_str(), string_length, 0);
   if (bts == -1) 
     perror("send");
-  // else
-  //   std::cout << "TX< " << transmit_data << std::endl;
+  else
+    std::cout << "TX< " << transmit_data; //no endl
 
   m_tx_can_deque.pop_front(); 
 }
