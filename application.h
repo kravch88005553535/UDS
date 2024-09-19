@@ -16,7 +16,7 @@
 class Application
 {
 public:
-  Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx_can_id);
+  Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_functional_can_id, const uint32_t a_ecu_tx_can_id);
   ~Application();
 
   bool Execute();
@@ -39,6 +39,7 @@ private:
   DID_Repository&         m_did_repository;
 
   const uint32_t          m_ecu_rx_can_id;
+  const uint32_t          m_ecu_functional_can_id;
   const uint32_t          m_ecu_tx_can_id;
 
   void CreateSocketUDS();

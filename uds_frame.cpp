@@ -3,8 +3,8 @@
 
 UDS_Frame::UDS_Frame()
   : m_is_frame_valid{true}
+  , m_is_addressing_functional{false}
 {}
-
 UDS_Frame::UDS_Frame(const UDS_Frame& a_other)
 {
   m_source = a_other.m_source;
@@ -89,4 +89,14 @@ void UDS_Frame::SetFlagOfFCF(const ISO_15765_2_PCI_FCF_Flag a_flag)
 ISO_15765_2_PCI_FCF_Flag UDS_Frame::GetFlagOfFCF() const
 {
   return m_fcf_flag;
+}
+
+void UDS_Frame::SetFunctionalAddressingFlag(bool a_flag)
+{
+  m_is_addressing_functional = a_flag;
+}
+
+bool UDS_Frame::GetFunctionalAddressingFlag() const
+{
+  return m_is_addressing_functional;
 }

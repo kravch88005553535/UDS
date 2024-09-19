@@ -4,6 +4,7 @@
 #include <cstdint>
 #include "uds.h"
 #include "iso15765-2.h"
+#include "uds_config.h"
 
 UDS::UDS()
   : m_is_busy{false}
@@ -233,14 +234,15 @@ DID_Repository& UDS::GetDIDRepository()
 }
 
 
-UDSOnCAN::UDSOnCAN()
+UDSOnCAN::UDSOnCAN(const uint32_t a_ecu_functional_can_id)
   : UDS{}
   , m_status{Status_ok}
+  , m_ecu_functional_can_id{a_ecu_functional_can_id}
 {
-  m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareConfigurationNumber,        32,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareConfigurationNumber,        18,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareConfigurationVersionNumber, 32,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_FirmwareUpdateMode,                                       sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_MapUpdateMode,                                            sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_MapsUpdateMode,                                           sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_RS232_1_BaudrateSetup,                                    sizeof(unsigned), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_RS232_2_BaudrateSetup,                                    sizeof(unsigned), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_RS485_BaudrateSetup,                                      sizeof(unsigned), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
@@ -264,8 +266,8 @@ UDSOnCAN::UDSOnCAN()
   m_did_repository.AddDataIdentifier(DID_ECUInstallationDate,                                      16,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_SystemSupplierBaseConfiguration,                          18,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_BaseSoftwareVersion,                                      128,              DID_Instance::DID_Datatype_c_string,         DID_Instance::Readonly);
-  m_did_repository.AddDataIdentifier(DID_FirmwareUpdateStatus,                                     100,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_MapUpdateStatus,                                          100,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_FirmwareUpdateStatus,                                     100,              DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_MapsUpdateStatus,                                         100,              DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_RestartFromWatchdogError,                                 1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_HighVoltageError,                                         1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_LowVoltageError,                                          1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
@@ -325,6 +327,9 @@ void UDSOnCAN::Execute()
       //UDS_Frame::NRC_ServiceNotSupportedInActiveSession
       case UDS::Service_DiagnosticSessionControl:
       {
+        #ifndef UDS_DEBUG
+        //if(GetSessiontype()<=)
+        #endif //UDS_DEBUG
         if(uds_frame->GetDataLength() > 1)
         {
           MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat, source);
@@ -570,6 +575,8 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
       rx_frame->SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_2), payload-1, 0);
       rx_frame->SetDataLength(payload-1);
       rx_frame->SetSource(ap_can_frame->GetSource());
+      rx_frame->SetFunctionalAddressingFlag(ap_can_frame->GetID() == m_ecu_functional_can_id);
+      
       m_uds_rx_buffer.push_back(rx_frame);
       return true;  
     }
@@ -586,6 +593,7 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
       static_uds_frame.SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_3), ff_data_size+ff_did_size, 0);
       static_uds_frame.SetframeValidity(true);
       static_uds_frame.SetSource(ap_can_frame->GetSource());
+      static_uds_frame.SetFunctionalAddressingFlag(ap_can_frame->GetID() == m_ecu_functional_can_id);
       cf_data_remaining -= ff_sid_size + ff_did_size + ff_data_size;
       next_consecutive_frame_index = 1;
 
@@ -610,10 +618,11 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
         break;
 
       if(consecutive_frame_index != next_consecutive_frame_index)
-      {
         static_uds_frame.SetframeValidity(false);
-      }
-        
+
+      if(ap_can_frame->GetID() != static_uds_frame.GetFunctionalAddressingFlag())
+        static_uds_frame.SetframeValidity(false);
+
       if(cf_data_remaining <= cf_data_size)
       {
         static_uds_frame.SetData(ap_can_frame->GetDataPtr(CAN_Frame::DataPos_1), cf_data_remaining, offset);

@@ -3,10 +3,11 @@
 #include "application.h"
 #include "program_timer.h"
 #include "did.h"
-
-Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_tx_can_id)
-  : mref_uds {*(new UDSOnCAN())} 
+#include <chrono> //only for test
+Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_functional_can_id, const uint32_t a_ecu_tx_can_id)
+  : mref_uds {*(new UDSOnCAN(a_ecu_functional_can_id))} 
   , m_ecu_rx_can_id{a_ecu_rx_can_id}
+  , m_ecu_functional_can_id{a_ecu_functional_can_id}
   , m_ecu_tx_can_id{a_ecu_tx_can_id}
   , m_rx_socket_queue{}
   , m_tx_socket_queue{}
@@ -301,7 +302,7 @@ void Application::CheckSocketForNewRxData()
     recieved_data.append(string);
     //std::cout << "recieved " << (int64_t)t << " bytes of data" << std::endl;
     //for(volatile auto i{0}; i < t; ++i)
-    //  std::cout << std::dec << (unsigned)string[i] << ' ';
+    //std::cout << std::dec << (unsigned)string[i] << ' ';
     //std::cout << '\n';
   }
   
@@ -344,7 +345,7 @@ void Application::CheckSocketForNewRxData()
       std::string id{recieved_data_substring.substr(0,second_grid_index)};
       rx_can_id = std::stoul(id, nullptr, 16);//          ---------------------------------//RX_CAN_ID OK//------------------------------------------
     }
-    if(rx_can_id != m_ecu_rx_can_id)
+    if(rx_can_id != m_ecu_rx_can_id or rx_can_id != m_ecu_functional_can_id)
       is_frame_valid = false; 
 
     constexpr auto can_frame_data_size_bytes{8};

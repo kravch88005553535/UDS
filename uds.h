@@ -193,7 +193,7 @@ public:
     Status_is_waiting_fcf,
     Status_recieved_fcf,
   };
-  UDSOnCAN();
+  UDSOnCAN(const uint32_t a_ecu_functional_can_id);
   ~UDSOnCAN();
   
   void Execute();
@@ -215,5 +215,6 @@ private:
 
   Status         m_status;
   uint8_t        m_frames_remaining_until_next_fcf;
+  const uint32_t m_ecu_functional_can_id;
 };
 #endif //__UDS_H__

@@ -32,6 +32,8 @@ public:
 
   void SetFlagOfFCF(const ISO_15765_2_PCI_FCF_Flag a_flag);
   ISO_15765_2_PCI_FCF_Flag GetFlagOfFCF() const;
+  void SetFunctionalAddressingFlag(bool a_flag);
+  bool GetFunctionalAddressingFlag() const;
 private:
   CAN_Frame::Source        m_source;
   ISO_15765_2_PCI          m_protocol_information;
@@ -40,6 +42,7 @@ private:
   uint8_t                  m_data[4096];
   bool                     m_is_frame_valid;
   ISO_15765_2_PCI_FCF_Flag m_fcf_flag;
+  bool                     m_is_addressing_functional;
 };
 
 #endif //__UDS_MESSAGE_H__at the end of transmission sets to true

@@ -27,3 +27,6 @@ TIMERS
 A vehicle manufacturer specific time delay may be required before the server can positively respond to a
 service SecurityAccess ‘requestSeed’ message from the client after server power up/reset and after a certain
 number of false access attempts (see further description below).
+
+исправить баг с чтением переменнгых типа int
+добавить functional adressing в UDS
