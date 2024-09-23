@@ -142,7 +142,7 @@ bool DID_Repository::ReadDataIdentifier(const DID a_did, uint8_t* ap_read_to, ui
       uint8_t* read_to_ptr = ap_read_to;
       const uint8_t* read_from_ptr = (*it)->GetPtrToConstData(); 
       while (a_size_bytes--)
-        *read_to_ptr++ = *read_from_ptr++;
+        *read_to_ptr++ = *read_from_ptr++; //*read_to_ptr++ = *(read_from_ptr+a_size_bytes);
       return true;
     }
 
@@ -156,7 +156,7 @@ std::string DID_Repository::ReadDataIdentifier(const DID a_did)
   {
     if((*it)->GetDID() == a_did)
     {
-      bool condition{(*it)->GetDataType() == DID_Instance::DID_Datatype_c_string || (*it)->GetDataType() == DID_Instance::DID_Datatype_std_string};
+      bool condition{(*it)->GetDataType() == DID_Instance::DID_Datatype_c_string or (*it)->GetDataType() == DID_Instance::DID_Datatype_std_string};
       if(condition)
       {
         uint32_t size_of_data_to_read{(*it)->GetDataSize()};
@@ -165,7 +165,7 @@ std::string DID_Repository::ReadDataIdentifier(const DID a_did)
         const char* temp_string{temp_string_index_ptr};
         while (size_of_data_to_read--)
         {
-            *temp_string_index_ptr++ = *ptr_read_from++;
+          *temp_string_index_ptr++ = *ptr_read_from++;
         }
         std::string ret (temp_string);
         delete [] temp_string;

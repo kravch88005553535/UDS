@@ -9,7 +9,7 @@
 UDS::UDS()
   : m_is_busy{false}
   , m_sessiontype{DSC_Type_DefaultSession}
-  , m_sa_security_level_unlocked{0x00}
+  , m_sa_security_level_unlocked{SecurityAccessLevel_NONE}
   , m_sa_requestsequenceerror{true}
   , m_programmingsession_number_of_attempts{5}
   , m_extendeddiagnosticsession_number_of_attempts{5}
@@ -65,7 +65,7 @@ void UDS::SetSessionType(const SessionType a_sessiontype)
   //stop all current session events
   m_sessiontype = a_sessiontype;
   m_sa_requestsequenceerror = true;
-  m_sa_security_level_unlocked = 0x00;
+  m_sa_security_level_unlocked = SecurityAccessLevel_NONE;
 }
 UDS::SessionType UDS::GetSessiontype()
 {
@@ -243,9 +243,9 @@ UDSOnCAN::UDSOnCAN(const uint32_t a_ecu_functional_can_id)
   m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareConfigurationVersionNumber, 32,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_FirmwareUpdateMode,                                       sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_MapsUpdateMode,                                           sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_RS232_1_BaudrateSetup,                                    sizeof(unsigned), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_RS232_2_BaudrateSetup,                                    sizeof(unsigned), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_RS485_BaudrateSetup,                                      sizeof(unsigned), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_RS232_1_BaudrateSetup,                                    sizeof(uint32_t), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_RS232_2_BaudrateSetup,                                    sizeof(uint32_t), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_RS485_BaudrateSetup,                                      sizeof(uint32_t), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_WiFiPassword,                                             64,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_DiagData,                                                 2,                DID_Instance::DID_Datatype_raw_data,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareNumber,                     20,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
@@ -280,11 +280,11 @@ UDSOnCAN::UDSOnCAN(const uint32_t a_ecu_functional_can_id)
   {
 
   //lock necessary dids
-  uint32_t default_async_interfaces_speed_kbaud{19200};
+  uint32_t default_async_interfaces_speed_kbaud{1};
   m_did_repository.WriteDataIdentifier(DID_RS232_1_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
   m_did_repository.WriteDataIdentifier(DID_RS232_2_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
   m_did_repository.WriteDataIdentifier(DID_RS485_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
-
+  m_did_repository.WriteDataIdentifier(DID_FirmwareUpdateStatus, "STATUS!");
     const char* string = "123dfklgdfskgds g";
     volatile uint8_t str_len = strlen(string);
 
@@ -328,8 +328,15 @@ void UDSOnCAN::Execute()
       case UDS::Service_DiagnosticSessionControl:
       {
         #ifndef UDS_DEBUG
-        //if(GetSessiontype()<=)
+
+        if(GetSessiontype() < UDS::DSC_Type_ExtendedDiagnosticSession)
+        {
+          MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
+          break;
+        }
+          
         #endif //UDS_DEBUG
+        
         if(uds_frame->GetDataLength() > 1)
         {
           MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat, source);
@@ -365,10 +372,20 @@ void UDSOnCAN::Execute()
 
       case UDS::Service_SecurityAccess:
       {
+        //NOT ALLOWED IN FUNCTIONAL ADDRESSING
+
+        #ifndef UDS_DEBUG
+        if(GetSessiontype() < UDS::DSC_Type_ProgrammingSession)
+        {
+          MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
+          break;
+        }
+        #endif //UDS_DEBUG
+
         constexpr auto subfunction_size{1};
         const uint8_t secutityaccess_type{*(uds_frame->GetData())};
 
-        if(secutityaccess_type > 0x06 || secutityaccess_type == 0x00)
+        if(secutityaccess_type > SecurityAccessLevel_3_Response or secutityaccess_type == SecurityAccessLevel_NONE)
         {
           MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported, source);
           break;
@@ -433,7 +450,7 @@ void UDSOnCAN::Execute()
 
           if(CompareSecurityAccessKey(recieved_key))
           {
-            m_sa_security_level_unlocked = secutityaccess_type - 1;
+            m_sa_security_level_unlocked = static_cast<SecurityAccessLevel>(secutityaccess_type - 1);
             uint8_t* response_data{new uint8_t[subfunction_size]};
             response_data[0] = secutityaccess_type;
             MakePositiveResponse(sid, response_data, subfunction_size, source);
@@ -459,6 +476,16 @@ void UDSOnCAN::Execute()
 
       case UDS::Service_CommunicationControl:
       {
+        #ifndef UDS_DEBUG
+
+        if(GetSessiontype() < UDS::DSC_Type_ExtendedDiagnosticSession)
+        {
+          MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
+          break;
+        }
+          
+        #endif //UDS_DEBUG
+
         auto data_length{uds_frame->GetDataLength()};
         if(data_length == 0 or data_length > 4)
         {
@@ -485,6 +512,8 @@ void UDSOnCAN::Execute()
 
       case UDS::Service_ReadDataByIdentifier:
       {
+        //NOT ALLOWED IN FUNCTIONAL ADDRESSING
+        
         const uint8_t* ptr{uds_frame->GetData()};
         const DID did {static_cast<DID>((*ptr << 8) | (*(++ptr)))};
         if(m_did_repository.FindDataIdentifier(did))
@@ -507,6 +536,24 @@ void UDSOnCAN::Execute()
 
       case UDS::Service_WriteDataByIdentifier:
       {
+        //NOT ALLOWED IN FUNCTIONAL ADDRESSING
+
+        #ifndef UDS_DEBUG
+
+        if(GetSessiontype() < UDS::DSC_Type_ExtendedDiagnosticSession)
+        {
+          MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
+          break;
+        }
+
+        if(m_sa_security_level_unlocked < SecurityAccessLevel_2)
+        {
+          MakeNegativeResponse(sid, UDS::NRC_SecurityAccessDenied, source);
+          break;
+        }
+        
+        #endif //UDS_DEBUG
+
         const uint8_t* ptr{uds_frame->GetData()};
         auto  data_length{uds_frame->GetDataLength()};
         const DID did {static_cast<DID>((*ptr << 8) | (*(++ptr)))};

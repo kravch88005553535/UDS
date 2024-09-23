@@ -345,7 +345,7 @@ void Application::CheckSocketForNewRxData()
       std::string id{recieved_data_substring.substr(0,second_grid_index)};
       rx_can_id = std::stoul(id, nullptr, 16);//          ---------------------------------//RX_CAN_ID OK//------------------------------------------
     }
-    if(rx_can_id != m_ecu_rx_can_id or rx_can_id != m_ecu_functional_can_id)
+    if(!(rx_can_id == m_ecu_rx_can_id or rx_can_id == m_ecu_functional_can_id))
       is_frame_valid = false; 
 
     constexpr auto can_frame_data_size_bytes{8};

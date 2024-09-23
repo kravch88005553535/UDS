@@ -135,6 +135,17 @@ public:
     NetworkManagementCommunicationMessages = 0x2,
     NetworkManagementCommunicationMessagesAndNormalCommunicationMessages = 0x3
   };
+  
+  enum SecurityAccessLevel
+  {
+    SecurityAccessLevel_NONE = 0,
+    SecurityAccessLevel_1 = 0x01,
+    SecurityAccessLevel_1_Response = 0x02,
+    SecurityAccessLevel_2 = 0x03,
+    SecurityAccessLevel_2_Response = 0x04,
+    SecurityAccessLevel_3 = 0x05,
+    SecurityAccessLevel_3_Response = 0x06,
+  };
 
   void        SetSessionType(const SessionType a_sessiontype);
   SessionType GetSessiontype();
@@ -155,17 +166,16 @@ protected:
   UDS();
   virtual ~UDS() = default;
   
-  bool          m_is_busy;
-  
-  SessionType   m_sessiontype;
-  uint8_t       m_sa_security_level_unlocked;
-  bool          m_sa_requestsequenceerror;
-  uint8_t       m_programmingsession_number_of_attempts;
-  uint8_t       m_extendeddiagnosticsession_number_of_attempts;
-  uint8_t       m_safetysystemdiagnosticsession_number_of_attempts;
-  SeedSize      m_seed_size;
-  uint64_t      m_seed;
-  uint64_t      m_key;
+  bool                m_is_busy;
+  SessionType         m_sessiontype;
+  SecurityAccessLevel m_sa_security_level_unlocked;
+  bool                m_sa_requestsequenceerror;
+  uint8_t             m_programmingsession_number_of_attempts;
+  uint8_t             m_extendeddiagnosticsession_number_of_attempts;
+  uint8_t             m_safetysystemdiagnosticsession_number_of_attempts;
+  SeedSize            m_seed_size;
+  uint64_t            m_seed;
+  uint64_t            m_key;
 
   Program_timer m_p2_timer;
   Program_timer m_s3_timer;

@@ -30,3 +30,5 @@ number of false access attempts (see further description below).
 
 исправить баг с чтением переменнгых типа int
 добавить functional adressing в UDS
+добавить таймер в SecurityAccess
+добавить переподключение сокетов при отвале
