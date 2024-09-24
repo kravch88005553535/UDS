@@ -308,7 +308,7 @@ void UDSOnCAN::Execute()
 
     UDS::Service sid{uds_frame->GetSID()};
     CAN_Frame::Source source{uds_frame->GetSource()};
-    #ifndef UDS_DEBUG
+    #ifdef UDS_DEBUG_FRAME_VALIDITY_ENABLED
     if(!uds_frame->IsFrameValid())
     {
       MakeNegativeResponse(sid, UDS::NRC_ConditionsNotCorrect, source);
@@ -316,18 +316,18 @@ void UDSOnCAN::Execute()
       return;
     }
     #endif //UDS_DEBUG
+
     switch(sid)
     {
-      //UDS_Frame::NRC_ServiceNotSupportedInActiveSession
       case UDS::Service_DiagnosticSessionControl:
       {
-        #ifndef UDS_DEBUG
+        #ifdef UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
         if(GetSessiontype() < UDS::DSC_Type_ExtendedDiagnosticSession)
         {
           MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
           break;
         }
-        #endif //UDS_DEBUG
+        #endif //UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
         
         if(uds_frame->GetDataLength() > 1)
         {
@@ -335,7 +335,7 @@ void UDSOnCAN::Execute()
           break;
         }
         
-        uint8_t sessiontype{*(uds_frame->GetData())};
+        uint8_t sessiontype = *uds_frame->GetData() & 0x7F;
         if(sessiontype > DSC_Type_SafetySystemDiagnosticSession)
         {
           MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported, source);
@@ -346,19 +346,23 @@ void UDSOnCAN::Execute()
         //   MakeNegativeResponse(sid, UDS_Frame::NRC_ConditionsNotCorrect);
         //   break;
         // }
-
-        constexpr auto subfunction_size{1};
-        constexpr auto p2_timings_size{4};
         SetSessionType(static_cast<UDS::SessionType>(sessiontype));
-        const auto response_array_size{subfunction_size+p2_timings_size};
-        uint8_t* response_data{new uint8_t[response_array_size]};  
-        response_data[0] = sessiontype;
-        response_data[1] = 0x00;
-        response_data[2] = 0x32; //50ms
-        response_data[3] = 0x01;
-        response_data[4] = 0xF4; //5000ms
-        MakePositiveResponse(sid, &response_data[0], response_array_size, source);
-        delete [] response_data;
+
+        const bool pr_supression = *uds_frame->GetData() & 0x80;
+        if(pr_supression == 0)
+        {
+          constexpr auto subfunction_size{1};
+          constexpr auto p2_timings_size{4};
+          const auto response_array_size{subfunction_size+p2_timings_size};
+          uint8_t* response_data{new uint8_t[response_array_size]};  
+          response_data[0] = sessiontype;
+          response_data[1] = 0x00;
+          response_data[2] = 0x32; //50ms
+          response_data[3] = 0x01;
+          response_data[4] = 0xF4; //5000ms
+          MakePositiveResponse(sid, &response_data[0], response_array_size, source);
+          delete [] response_data;
+        }
       }
       break;
 
@@ -366,16 +370,16 @@ void UDSOnCAN::Execute()
       {
         //NOT ALLOWED IN FUNCTIONAL ADDRESSING
 
-        #ifndef UDS_DEBUG
+        #ifdef UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
         if(GetSessiontype() < UDS::DSC_Type_ProgrammingSession)
         {
           MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
           break;
         }
-        #endif //UDS_DEBUG
+        #endif //UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
 
-        constexpr auto subfunction_size{1};
-        const uint8_t secutityaccess_type{*(uds_frame->GetData())};
+        constexpr auto subfunction_size{1};        const uint8_t secutityaccess_type = *uds_frame->GetData() & 0x7F;
+        const bool pr_supression = *uds_frame->GetData() & 0x80;
 
         if(secutityaccess_type > SecurityAccessLevel_3_Response or secutityaccess_type == SecurityAccessLevel_NONE)
         {
@@ -393,6 +397,7 @@ void UDSOnCAN::Execute()
             MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat, source);
             break;
           }
+
           uint8_t* response_data{new uint8_t[subfunction_size+m_seed_size]};
           response_data[0] = secutityaccess_type;
           if(m_sa_security_level_unlocked == secutityaccess_type)
@@ -403,11 +408,12 @@ void UDSOnCAN::Execute()
           else
           {
             GenerateAndUpdateSecurityAccessSeed(m_seed_size);
-            
             for (auto i{0}; i < m_seed_size; ++i)
               response_data[m_seed_size-i] = *((uint8_t*)&m_seed+i);
           }
-          MakePositiveResponse(sid, response_data, subfunction_size+m_seed_size, source);
+          if(pr_supression == 0)
+            MakePositiveResponse(sid, response_data, subfunction_size+m_seed_size, source);
+          
           delete[] response_data;
           m_sa_requestsequenceerror = false;
         }
@@ -445,7 +451,8 @@ void UDSOnCAN::Execute()
             m_sa_security_level_unlocked = static_cast<SecurityAccessLevel>(secutityaccess_type - 1);
             uint8_t* response_data{new uint8_t[subfunction_size]};
             response_data[0] = secutityaccess_type;
-            MakePositiveResponse(sid, response_data, subfunction_size, source);
+            if(pr_supression == 0)
+              MakePositiveResponse(sid, response_data, subfunction_size, source);
             delete[] response_data;
             /*
              *  In case the server supports this delay timer then after a successful
@@ -468,13 +475,13 @@ void UDSOnCAN::Execute()
 
       case UDS::Service_CommunicationControl:
       {
-        #ifndef UDS_DEBUG
+        #ifdef UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
         if(GetSessiontype() < UDS::DSC_Type_ExtendedDiagnosticSession)
         {
           MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
           break;
         }
-        #endif //UDS_DEBUG
+        #endif //UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
 
         auto data_length{uds_frame->GetDataLength()};
         if(data_length == 0 or data_length > 4)
@@ -526,7 +533,7 @@ void UDSOnCAN::Execute()
       {
         //NOT ALLOWED IN FUNCTIONAL ADDRESSING
 
-        #ifndef UDS_DEBUG
+        #ifdef UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
         if(GetSessiontype() < UDS::DSC_Type_ExtendedDiagnosticSession)
         {
           MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
@@ -537,7 +544,7 @@ void UDSOnCAN::Execute()
           MakeNegativeResponse(sid, UDS::NRC_SecurityAccessDenied, source);
           break;
         }
-        #endif //UDS_DEBUG
+        #endif //UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
 
         const uint8_t* ptr{uds_frame->GetData()};
         auto  data_length{uds_frame->GetDataLength()};
@@ -650,9 +657,6 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
         break;
 
       if(consecutive_frame_index != next_consecutive_frame_index)
-        static_uds_frame.SetframeValidity(false);
-
-      if(ap_can_frame->GetID() != static_uds_frame.GetFunctionalAddressingFlag())
         static_uds_frame.SetframeValidity(false);
 
       if(cf_data_remaining <= cf_data_size)
