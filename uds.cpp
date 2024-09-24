@@ -277,24 +277,14 @@ UDSOnCAN::UDSOnCAN(const uint32_t a_ecu_functional_can_id)
   m_did_repository.AddDataIdentifier(DID_KamazReliefMapLoadError,                                  1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_MCUFirmwareIntegrityError,                                1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_BipError,                                                 1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
-  {
 
-  //lock necessary dids
   uint32_t default_async_interfaces_speed_kbaud{1};
   m_did_repository.WriteDataIdentifier(DID_RS232_1_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
   m_did_repository.WriteDataIdentifier(DID_RS232_2_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
   m_did_repository.WriteDataIdentifier(DID_RS485_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
-  m_did_repository.WriteDataIdentifier(DID_FirmwareUpdateStatus, "STATUS!");
-    const char* string = "123dfklgdfskgds g";
-    volatile uint8_t str_len = strlen(string);
+  m_did_repository.WriteDataIdentifier(DID_FirmwareUpdateStatus, " WX");
+  m_did_repository.WriteDataIdentifier(DID_VIN, "ABCDE GFBD");
 
-    m_did_repository.WriteDataIdentifier(DID_VIN, string);
-    // m_did_repository.WriteDataIdentifier(DID_VIN, std::string("123dfklgdfskgds"));//DID_ExhaustRegulationOrTypeApprovalNumber
-    char str[50]{};
-    std::string t2 = m_did_repository.ReadDataIdentifier(DID_VIN);
-    m_did_repository.ReadDataIdentifier(DID_VIN, (uint8_t*)&str[0], str_len);
-    volatile auto t(7);
-  }
   std::vector<DID_Instance*> vector{m_did_repository.GetListOfModifiedDIDs()};
   for(auto it{vector.begin()}; it != vector.end(); ++it)
   {
@@ -302,6 +292,7 @@ UDSOnCAN::UDSOnCAN(const uint32_t a_ecu_functional_can_id)
       (*it)->SetModifyFlag(false);
   }
 }
+
 UDSOnCAN::~UDSOnCAN(){}
 
 void UDSOnCAN::Execute()
@@ -317,24 +308,25 @@ void UDSOnCAN::Execute()
 
     UDS::Service sid{uds_frame->GetSID()};
     CAN_Frame::Source source{uds_frame->GetSource()};
+    #ifndef UDS_DEBUG
     if(!uds_frame->IsFrameValid())
     {
       MakeNegativeResponse(sid, UDS::NRC_ConditionsNotCorrect, source);
       delete uds_frame;
+      return;
     }
+    #endif //UDS_DEBUG
     switch(sid)
     {
       //UDS_Frame::NRC_ServiceNotSupportedInActiveSession
       case UDS::Service_DiagnosticSessionControl:
       {
         #ifndef UDS_DEBUG
-
         if(GetSessiontype() < UDS::DSC_Type_ExtendedDiagnosticSession)
         {
           MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
           break;
         }
-          
         #endif //UDS_DEBUG
         
         if(uds_frame->GetDataLength() > 1)
@@ -477,13 +469,11 @@ void UDSOnCAN::Execute()
       case UDS::Service_CommunicationControl:
       {
         #ifndef UDS_DEBUG
-
         if(GetSessiontype() < UDS::DSC_Type_ExtendedDiagnosticSession)
         {
           MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
           break;
         }
-          
         #endif //UDS_DEBUG
 
         auto data_length{uds_frame->GetDataLength()};
@@ -521,10 +511,8 @@ void UDSOnCAN::Execute()
           auto did_size{m_did_repository.GetDataIdentifierSize(did)};
           uint32_t total_data_size{uint32_t(did_size + sizeof(DID))};
           uint8_t* response_data{new uint8_t[total_data_size]};
-          //fill did
           response_data[0] = (did & 0xFF00) >> 8;
           response_data[1] = did & 0xFF;
-          //fill did data
           m_did_repository.ReadDataIdentifier(did, &response_data[2], did_size);
           MakePositiveResponse(sid,response_data, total_data_size, source);
           delete[] response_data;
@@ -539,19 +527,16 @@ void UDSOnCAN::Execute()
         //NOT ALLOWED IN FUNCTIONAL ADDRESSING
 
         #ifndef UDS_DEBUG
-
         if(GetSessiontype() < UDS::DSC_Type_ExtendedDiagnosticSession)
         {
           MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
           break;
         }
-
         if(m_sa_security_level_unlocked < SecurityAccessLevel_2)
         {
           MakeNegativeResponse(sid, UDS::NRC_SecurityAccessDenied, source);
           break;
         }
-        
         #endif //UDS_DEBUG
 
         const uint8_t* ptr{uds_frame->GetData()};
@@ -740,17 +725,18 @@ bool UDSOnCAN::ConvertCANFrameToUDS(const CAN_Frame* const ap_can_frame)
 }
 bool UDSOnCAN::IsRXBufferOfUDSEmpty()
 {
-  return !(bool)m_uds_rx_buffer.size();
+  return m_uds_rx_buffer.size() == 0;
 }
 bool UDSOnCAN::IsTXBufferOfUDSEmpty()
 {
-  return !(bool)m_uds_tx_buffer.size();
+  return m_uds_tx_buffer.size() == 0;
 }
 std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
 {
   std::vector<CAN_Frame*>frames{};
   UDS_Frame* uds_frame{m_uds_tx_buffer.front()};
   m_uds_tx_buffer.pop_front();
+    
   CAN_Frame* tx_frame{nullptr};
   constexpr uint8_t padding{0xAA};  //request padding 0x55, response padding 0xAA
   static uint16_t  ff_cf_remaining_data_bytes{}; // ff = first frame, cf = consecutive frame
@@ -783,13 +769,14 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
     case ISO_15765_2_PCI::PCI_FirstFrame:
     {
       constexpr auto data_bytes_total_in_ff{5};
+      constexpr auto sid_size{1};
       const uint8_t pci{static_cast<uint8_t>(uds_frame->GetProtocolInformation())};
       const uint8_t pci_shifted = pci << 4;
-      ff_cf_remaining_data_bytes = uds_frame->GetDataLength()+1;
-      //assign data length to the frame
+      ff_cf_remaining_data_bytes = uds_frame->GetDataLength() + 1;
       volatile uint8_t size_l{static_cast<uint8_t>(ff_cf_remaining_data_bytes & 0xFF)};
       volatile uint8_t size_h{static_cast<uint8_t>((ff_cf_remaining_data_bytes & 0x0F00) >> 8)};
       const uint8_t sid{static_cast<uint8_t>(uds_frame->GetSID())};
+      ff_cf_remaining_data_bytes -= sid_size;
       const uint8_t* data{uds_frame->GetData()};
       tx_frame = {new CAN_Frame};
       tx_frame->SetData(CAN_Frame::DataPos_0, pci_shifted | size_h);
@@ -819,8 +806,8 @@ std::vector<CAN_Frame*> UDSOnCAN::ConvertUDSFrameToCAN()
       {
         tx_frame = {new CAN_Frame};
         tx_frame->Fill(0x55);
-        tx_frame->SetData(CAN_Frame::DataPos_0, pci_shifted | index++); //set frame first byte
-        for(auto i{0}; i < data_bytes_total_in_cf; ++i)                 //set frame data
+        tx_frame->SetData(CAN_Frame::DataPos_0, pci_shifted | index++);
+        for(auto i{0}; i < data_bytes_total_in_cf; ++i)
         {
           CAN_Frame::DataPos data_pos = static_cast<CAN_Frame::DataPos>(CAN_Frame::DataPos_1 + i);
           tx_frame->SetData(data_pos, *data++);
@@ -925,6 +912,6 @@ void UDSOnCAN::MakeNegativeResponse(UDS::Service a_rejected_sid, UDS::NegativeRe
   data[1] = (uint8_t)a_nrc;
   negativeresponse_frame->SetData(data, payload_size, 0);
   negativeresponse_frame->SetSource(a_source);
-  m_uds_tx_buffer.push_back(negativeresponse_frame); //or push front
+  m_uds_tx_buffer.push_back(negativeresponse_frame);
   delete[] data;
 }

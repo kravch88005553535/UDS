@@ -1,1 +1,1 @@
-//#define UDS_DEBUG
+#define UDS_DEBUG

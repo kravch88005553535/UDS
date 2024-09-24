@@ -17,10 +17,7 @@ DID_Instance::DID_Instance(const DID a_did, const uint32_t a_size, const DID_Dat
   , m_islocked{false}
   , mp_data_first_byte{nullptr}
   , m_is_modified{false}
-{
-  if(a_datatype == DID_Datatype_c_string || a_datatype == DID_Datatype_std_string)
-    m_size++;
-  
+{  
   mp_data_first_byte = new uint8_t[m_size];
   if (a_rw == Readonly)
     Lock();
@@ -145,7 +142,6 @@ bool DID_Repository::ReadDataIdentifier(const DID a_did, uint8_t* ap_read_to, ui
         *read_to_ptr++ = *read_from_ptr++; //*read_to_ptr++ = *(read_from_ptr+a_size_bytes);
       return true;
     }
-
   }
   std::cout << "[ WARNING ] Data by ID 0x" << std::hex << std::uppercase << a_did << " does not exist! (Inccorrect DID)" << '\n';
   return false;

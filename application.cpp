@@ -41,6 +41,7 @@ bool Application::Execute()
   while (1)
   {
     std::cout.flags(coutformatflags);
+
     CheckSocketForNewRxData();
     if(!m_rx_can_deque.empty())
     {
@@ -52,14 +53,13 @@ bool Application::Execute()
 
     mref_uds.Execute();
  
-    while(!mref_uds.IsTXBufferOfUDSEmpty())
+    if(!mref_uds.IsTXBufferOfUDSEmpty())
     {
-      std::vector<CAN_Frame*>frames{mref_uds.ConvertUDSFrameToCAN()}; // return array of can frames via std::vector or std::array
+      std::vector<CAN_Frame*>frames{mref_uds.ConvertUDSFrameToCAN()};
       for (auto it: frames)
-      {
-        m_tx_can_deque.push_back(it); //need check
-      }
+        m_tx_can_deque.push_back(it); 
     }
+
     auto status{mref_uds.GetStatus()};
     switch(status)
     {
@@ -372,16 +372,16 @@ void Application::CheckSocketForNewRxData()
     {
       CAN_Frame* p_frame{new CAN_Frame(source, rx_can_id, &can_data[0])};
       m_rx_can_deque.push_back(p_frame);
-      // std::cout << std::hex << "[VALID] RX> " << (int)source << '#' << rx_can_id << '#' << (int)can_data[0] << '.' << (int)can_data[1] << '.'
-      //                                                                                   << (int)can_data[2] << '.' << (int)can_data[3] << '.'
-      //                                                                                   << (int)can_data[4] << '.' << (int)can_data[5] << '.'
-      //                                                                                   << (int)can_data[6] << '.' << (int)can_data[7] << std::endl;
+      std::cout << std::hex << "RX> " << (int)source << '#' << rx_can_id << '#' << (int)can_data[0] << '.' << (int)can_data[1] << '.'
+                                                                                        << (int)can_data[2] << '.' << (int)can_data[3] << '.'
+                                                                                        << (int)can_data[4] << '.' << (int)can_data[5] << '.'
+                                                                                        << (int)can_data[6] << '.' << (int)can_data[7] << std::endl;
     }
-    // else
-    //   std::cout << std::hex << "[NOT VALID] RX> " << (int)source << '#' << rx_can_id << '#' << (int)can_data[0] << '.' << (int)can_data[1] << '.'
-    //                                                                                     << (int)can_data[2] << '.' << (int)can_data[3] << '.'
-    //                                                                                     << (int)can_data[4] << '.' << (int)can_data[5] << '.'
-    //                                                                                     << (int)can_data[6] << '.' << (int)can_data[7] << std::endl;
+    else
+      std::cout << std::hex << "[NOT VALID] RX> " << (int)source << '#' << rx_can_id << '#' << (int)can_data[0] << '.' << (int)can_data[1] << '.'
+                                                                                        << (int)can_data[2] << '.' << (int)can_data[3] << '.'
+                                                                                        << (int)can_data[4] << '.' << (int)can_data[5] << '.'
+                                                                                        << (int)can_data[6] << '.' << (int)can_data[7] << std::endl;
   }
 }
 void Application::TransmitCanFrameToSocket()
