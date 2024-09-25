@@ -139,7 +139,7 @@ bool DID_Repository::ReadDataIdentifier(const DID a_did, uint8_t* ap_read_to, ui
       uint8_t* read_to_ptr = ap_read_to;
       const uint8_t* read_from_ptr = (*it)->GetPtrToConstData(); 
       while (a_size_bytes--)
-        *read_to_ptr++ = *read_from_ptr++; //*read_to_ptr++ = *(read_from_ptr+a_size_bytes);
+        *read_to_ptr++ = *(read_from_ptr+a_size_bytes); //*read_to_ptr++ = *read_from_ptr++;
       return true;
     }
   }
@@ -157,11 +157,11 @@ std::string DID_Repository::ReadDataIdentifier(const DID a_did)
       {
         uint32_t size_of_data_to_read{(*it)->GetDataSize()};
         const char* ptr_read_from{(const char*)(*it)->GetPtrToConstData()};
-        char* temp_string_index_ptr{new char[size_of_data_to_read]};  //???? CHECK FOR C STRINGS (NULL CHARACTERS) !!!
+        char* temp_string_index_ptr{new char[size_of_data_to_read]};
         const char* temp_string{temp_string_index_ptr};
         while (size_of_data_to_read--)
         {
-          *temp_string_index_ptr++ = *ptr_read_from++;
+          *(temp_string_index_ptr+size_of_data_to_read) = *ptr_read_from++;//*temp_string_index_ptr++ = *ptr_read_from++;
         }
         std::string ret (temp_string);
         delete [] temp_string;
@@ -231,6 +231,57 @@ bool DID_Repository::WriteDataIdentifier(const DID a_did, const uint8_t* ap_read
         {
           if(read_from_data_size)
           {
+            *(write_to_ptr+write_to_data_size) = *read_from_ptr++; //*write_to_ptr++ = *read_from_ptr++;
+            --read_from_data_size;
+          }
+          else 
+            *write_to_ptr++ = 0;
+        }
+        //kostyl!
+        if((*it)->GetDataType() == DID_Instance::DID_Datatype_bool)
+        {
+          bool* const data{reinterpret_cast<bool*>((*it)->GetPtrToData())};
+          (*data) = (*data) ? 0x01 : 0x00;
+        }
+        //end of kostyl
+        (*it)->SetModifyFlag(true);
+        is_operation_successful = true;
+      }
+    }
+  }
+  return is_operation_successful; 
+}
+
+bool DID_Repository::LE_WriteDataIdentifier(const DID a_did, const uint8_t* ap_read_from, uint8_t a_size_bytes)
+{
+  bool is_operation_successful{false};
+  for(auto it{m_dids_list.begin()}; it != m_dids_list.end(); ++it)
+  {
+    bool is_size_appropriate{(*it)->GetDataSize() >= a_size_bytes};
+    bool is_rw{(*it)->IsRW() == DID_Instance::DID_RW::ReadWrite};
+    bool is_not_locked{!(*it)->IsLocked()};
+
+    if((*it)->GetDID() == a_did)
+    {   
+      if(!is_size_appropriate)
+        std::cout << "[   ERROR   ] Can not write data by ID 0x" << std::hex << std::uppercase << a_did << ". Size of input buffer is too high!" << '\n';
+      if(!is_rw)
+        std::cout << "[   ERROR   ] Can not write data by ID 0x" << std::hex << std::uppercase <<  a_did << ". Data by this ID is READ ONLY!" << '\n';
+      if(!is_not_locked)
+        std::cout << "[   ERROR   ] Can not write data by ID 0x" << std::hex << std::uppercase << a_did << ". Lock is set!" << '\n';
+
+      if(is_size_appropriate && is_rw && is_not_locked)
+      {
+        const uint8_t* read_from_ptr{ap_read_from};
+        uint8_t* write_to_ptr{(*it)->GetPtrToData()};
+        
+        auto write_to_data_size{(*it)->GetDataSize()};
+        auto read_from_data_size{a_size_bytes};
+
+        while(write_to_data_size--) // !! never use "read_from_data_size--"" !!
+        {
+          if(read_from_data_size)
+          {
             *write_to_ptr++ = *read_from_ptr++;
             --read_from_data_size;
           }
@@ -251,6 +302,7 @@ bool DID_Repository::WriteDataIdentifier(const DID a_did, const uint8_t* ap_read
   }
   return is_operation_successful; 
 }
+
 bool DID_Repository::WriteDataIdentifier(const DID a_did, const char* str)
 {
   return WriteDataIdentifier(a_did, (const uint8_t*)str, strlen(str)+1);

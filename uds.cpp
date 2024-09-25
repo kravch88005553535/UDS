@@ -279,11 +279,13 @@ UDSOnCAN::UDSOnCAN(const uint32_t a_ecu_functional_can_id)
   m_did_repository.AddDataIdentifier(DID_BipError,                                                 1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
 
   uint32_t default_async_interfaces_speed_kbaud{1};
-  m_did_repository.WriteDataIdentifier(DID_RS232_1_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
-  m_did_repository.WriteDataIdentifier(DID_RS232_2_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
-  m_did_repository.WriteDataIdentifier(DID_RS485_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
+  m_did_repository.LE_WriteDataIdentifier(DID_RS232_1_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
+  m_did_repository.LE_WriteDataIdentifier(DID_RS232_2_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
+  m_did_repository.LE_WriteDataIdentifier(DID_RS485_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
   m_did_repository.WriteDataIdentifier(DID_FirmwareUpdateStatus, " WX");
   m_did_repository.WriteDataIdentifier(DID_VIN, "ABCDE GFBD");
+  
+  std::string temp{m_did_repository.ReadDataIdentifier(DID_VIN)};
 
   std::vector<DID_Instance*> vector{m_did_repository.GetListOfModifiedDIDs()};
   for(auto it{vector.begin()}; it != vector.end(); ++it)

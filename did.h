@@ -105,6 +105,7 @@ public:
   bool                       FindDataIdentifier(const DID a_did) const;
   uint32_t                   GetDataIdentifierSize(const DID a_did) const; 
   bool                       WriteDataIdentifier(const DID a_did, const uint8_t* ap_read_from, uint8_t a_size_bytes);
+  bool                       LE_WriteDataIdentifier(const DID a_did, const uint8_t* ap_read_from, uint8_t a_size_bytes); //read from data is LE (use only for non string data types)
   bool                       WriteDataIdentifier(const DID a_did, const char* str);
   bool                       WriteDataIdentifier(const DID a_did, std::string str);
   void                       AddDataIdentifier(DID_Instance* ap_did);
