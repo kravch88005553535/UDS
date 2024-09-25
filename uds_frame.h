@@ -33,7 +33,7 @@ public:
   void SetFlagOfFCF(const ISO_15765_2_PCI_FCF_Flag a_flag);
   ISO_15765_2_PCI_FCF_Flag GetFlagOfFCF() const;
   void SetFunctionalAddressingFlag(bool a_flag);
-  bool GetFunctionalAddressingFlag() const;
+  bool IsAddressungFunctional() const;
 private:
   CAN_Frame::Source        m_source;
   ISO_15765_2_PCI          m_protocol_information;

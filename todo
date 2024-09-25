@@ -1,17 +1,17 @@
--- ok -- move sa key from udsoncan to uds
-//move enum Status to udsoncan
+CHECK MAKENEGATIVERESPONSE
+
 допилить отправку 2 дида в сокет
 перепилить stmin клиент сервер
-
+-- todo -- reload sa attempts
+--in progress-- add sprmib check
 --in progress-- add wait for fcf
 --in progress-- add server is busy
---in progress-- add sprmib check
 --in progress-- реализовать все проверки по 7.5!!!! перекинуть service to uds from uds frame
 --in progress-- добавить уровни доступа к сидам
 --in progress-- timers добавить таймеры между пакетами
 --in progress-- отработать режим сессии m_sessiontype in UDS
 --in progress-- add server is busy
--- need test -- UDS RX multiple frame  multi frame принять распиленный фрейм на несколько частей
+
 -- need test -- all buffers pop front operation
 -- need test -- if uds key successful, reset default number of tries
 -- need test -- security access levels 0x01 0x03 0x05
@@ -28,7 +28,10 @@ A vehicle manufacturer specific time delay may be required before the server can
 service SecurityAccess ‘requestSeed’ message from the client after server power up/reset and after a certain
 number of false access attempts (see further description below).
 
-исправить баг с чтением переменнгых типа int
 добавить functional adressing в UDS
 добавить таймер в SecurityAccess
 добавить переподключение сокетов при отвале
+
+На будущее:
+-добавить чтение нескольких дидов в одном запросе
+

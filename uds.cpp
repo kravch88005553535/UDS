@@ -371,7 +371,13 @@ void UDSOnCAN::Execute()
 
       case UDS::Service_SecurityAccess:
       {
-        //NOT ALLOWED IN FUNCTIONAL ADDRESSING
+        #ifdef UDS_DEBUG_FUNCTIONAL_ADDRESSING_CHECK_ENABLED
+        if(uds_frame->IsAddressungFunctional())
+        {
+          //MakeNegativeResponse(sid, UDS::NRC_RequestCorrectlyReceived_ResponsePending, source);
+          break;
+        }
+        #endif //UDS_DEBUG_FUNCTIONAL_ADDRESSING_CHECK_ENABLED
 
         #ifdef UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
         if(GetSessiontype() < UDS::DSC_Type_ProgrammingSession)
@@ -512,10 +518,24 @@ void UDSOnCAN::Execute()
 
       case UDS::Service_ReadDataByIdentifier:
       {
-        //NOT ALLOWED IN FUNCTIONAL ADDRESSING
+        #ifdef UDS_DEBUG_FUNCTIONAL_ADDRESSING_CHECK_ENABLED
+        if(uds_frame->IsAddressungFunctional())
+        {
+          //MakeNegativeResponse(sid, UDS::NRC_RequestCorrectlyReceived_ResponsePending, source);
+          break;
+        }
+        #endif //UDS_DEBUG_FUNCTIONAL_ADDRESSING_CHECK_ENABLED
+        
+        const uint32_t data_length{uds_frame->GetDataLength()};
+        if(data_length % 2 != 0)
+        {
+          MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat, source);
+          break;
+        }
         
         const uint8_t* ptr{uds_frame->GetData()};
         const DID did {static_cast<DID>((*ptr << 8) | (*(++ptr)))};
+
         if(m_did_repository.FindDataIdentifier(did))
         {
           auto did_size{m_did_repository.GetDataIdentifierSize(did)};
@@ -528,13 +548,19 @@ void UDSOnCAN::Execute()
           delete[] response_data;
         }
         else
-          MakeNegativeResponse(sid, UDS::NRC_GeneralReject, source);
+          MakeNegativeResponse(sid, UDS::NRC_RequestOutOfRange, source);
       }
       break;
 
       case UDS::Service_WriteDataByIdentifier:
       {
-        //NOT ALLOWED IN FUNCTIONAL ADDRESSING
+        #ifdef UDS_DEBUG_FUNCTIONAL_ADDRESSING_CHECK_ENABLED
+        if(uds_frame->IsAddressungFunctional())
+        {
+          //MakeNegativeResponse(sid, UDS::NRC_RequestCorrectlyReceived_ResponsePending, source);
+          break;
+        }
+        #endif //UDS_DEBUG_FUNCTIONAL_ADDRESSING_CHECK_ENABLED
 
         #ifdef UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
         if(GetSessiontype() < UDS::DSC_Type_ExtendedDiagnosticSession)

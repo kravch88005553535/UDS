@@ -101,7 +101,6 @@ public:
     NRC_VoltageTooLow                                   = 0x93,
     NRC_ResourceTemporaryUnavailable                    = 0x94
   };
-
   enum SeedSize
   {
     Seedsize_1_byte = 1,
@@ -135,7 +134,6 @@ public:
     NetworkManagementCommunicationMessages = 0x2,
     NetworkManagementCommunicationMessagesAndNormalCommunicationMessages = 0x3
   };
-  
   enum SecurityAccessLevel
   {
     SecurityAccessLevel_NONE = 0,

@@ -96,7 +96,7 @@ void UDS_Frame::SetFunctionalAddressingFlag(bool a_flag)
   m_is_addressing_functional = a_flag;
 }
 
-bool UDS_Frame::GetFunctionalAddressingFlag() const
+bool UDS_Frame::IsAddressungFunctional() const
 {
   return m_is_addressing_functional;
 }
