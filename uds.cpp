@@ -284,6 +284,7 @@ UDSOnCAN::UDSOnCAN(const uint32_t a_ecu_functional_can_id)
   m_did_repository.LE_WriteDataIdentifier(DID_RS485_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
   m_did_repository.WriteDataIdentifier(DID_FirmwareUpdateStatus, " WX");
   m_did_repository.WriteDataIdentifier(DID_VIN, "ABCDE GFBD");
+  m_did_repository.LE_ReadDataIdentifier(DID_RS232_1_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
   
   std::string temp{m_did_repository.ReadDataIdentifier(DID_VIN)};
 

@@ -101,6 +101,7 @@ public:
   ~DID_Repository();
   const DID_Instance* const  GetInstanceOfDID(const DID a_did);
   bool                       ReadDataIdentifier(const DID a_did, uint8_t* ap_read_to, uint8_t a_size_bytes);
+  bool                       LE_ReadDataIdentifier(const DID a_did, uint8_t* ap_read_to, uint8_t a_size_bytes);
   std::string                ReadDataIdentifier(const DID a_did);
   bool                       FindDataIdentifier(const DID a_did) const;
   uint32_t                   GetDataIdentifierSize(const DID a_did) const; 

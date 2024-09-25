@@ -146,6 +146,27 @@ bool DID_Repository::ReadDataIdentifier(const DID a_did, uint8_t* ap_read_to, ui
   std::cout << "[ WARNING ] Data by ID 0x" << std::hex << std::uppercase << a_did << " does not exist! (Inccorrect DID)" << '\n';
   return false;
 }
+bool DID_Repository::LE_ReadDataIdentifier(const DID a_did, uint8_t* ap_read_to, uint8_t a_size_bytes)
+{
+  for(auto it{m_dids_list.begin()}; it != m_dids_list.end(); ++it)
+  {
+    if((*it)->GetDID() == a_did)
+    {
+      if (a_size_bytes > (*it)->GetDataSize())
+      {
+        std::cout << "[   ERROR   ] Can not read data by ID 0x" << std::hex << std::uppercase << a_did << ". Size of output buffer is too high!" << '\n';
+        return false;
+      }
+      uint8_t* read_to_ptr = ap_read_to;
+      const uint8_t* read_from_ptr = (*it)->GetPtrToConstData(); 
+      while (a_size_bytes--)
+        *read_to_ptr++ = *read_from_ptr++;
+      return true;
+    }
+  }
+  std::cout << "[ WARNING ] Data by ID 0x" << std::hex << std::uppercase << a_did << " does not exist! (Inccorrect DID)" << '\n';
+  return false;
+}
 std::string DID_Repository::ReadDataIdentifier(const DID a_did)
 {
   for(auto it{m_dids_list.begin()}; it != m_dids_list.end(); ++it)
