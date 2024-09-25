@@ -31,41 +31,78 @@ UDS::UDS()
   m_separation_time_min_this_device_timer.SetInterval_ms(m_separation_time_this_device);
 }
 
-void UDS::SetSessionType(const SessionType a_sessiontype)
+bool UDS::SetSessionType(const SessionType a_sessiontype)
 {
-  // if(m_sessiontype == a_sessiontype)
-  // {
-  //   if(m_sessiontype == DSC_Type_DefaultSession)
-  //   {
-  //     //reinitialize all session parameters
-  //     /*
-  //     The server shall reset all activated/initiated/changed
-  //     settings/controls during the activated session. This does not include long term changes programmed into non-volatile
-  //     memory.
-  //     Note that the locking of security access shall reset any active diagnostic functionality that
-  //     was dependent on security access to be unlocked (e.g., active inputOutputControl of a DID)
-  //     */
-  //     return;
-  //   }
-  //   else
-  //   {
-  //     //stop events configured via 0x86 service
-  //     //relock security access
-
-  //     return;
-  // }
+  /*If the client has requested a diagnostic session, which is already running, then the server shall send a positive
+  response message and behave as shown in Figure 7 that describes the server internal behaviour when
+  transitioning between sessions.*/
+  if(m_sessiontype == a_sessiontype)
+  {
+    /*
+    default session: When the server is in the defaultSession and the client requests to start the defaultSession then the
+    server shall re-initialize the defaultSession completely. The server shall reset all activated/initiated/changed
+    settings/controls during the activated session. This does not include long term changes programmed into non-volatile
+    memory.
+    */
+    if(a_sessiontype == DSC_Type_DefaultSession)
+    {
+      m_s3_timer.Stop();
+      m_sa_requestsequenceerror = true;
+      m_sa_security_level_unlocked = SecurityAccessLevel_NONE;
+    }
+    else
+    /*same or other session: When the server transitions from any diagnostic session other than the defaultSession to
+    another session other than the defaultSession (including the currently active diagnostic session) then the server shall
+    (re-) initialize the diagnostic session, which means that:
+    i) Each event that has been configured in the server via the ResponseOnEvent (0x86) service shall be stopped.
+    ii) Security shall be relocked. Note that the locking of security access shall reset any active diagnostic functionality that
+    was dependent on security access to be unlocked (e.g., active inputOutputControl of a DID).
+    iii) All other active diagnostic functionality that is supported in the new session and is not dependent upon security
+    access shall be maintained. For example, any configured periodic scheduler shall remain active when transitioning
+    from one non-defaultSession to another or the same non-DefaultSession and the states of the CommunicationControl
+    and ControlDTCSetting services shall not be affected, which means that normal communication shall remain disabled
+    when it is disabled at the point in time the session is switched.*/
+    {
+      m_s3_timer.Reload();
+      m_s3_timer.Start(); //optional, but not need for this string here
+      m_sa_requestsequenceerror = true;
+      m_sa_security_level_unlocked = SecurityAccessLevel_NONE;
+    }
+    return true;
+  }
 
   if(m_sessiontype != DSC_Type_DefaultSession)
   {
+    if(a_sessiontype != DSC_Type_DefaultSession)
+      return false;
+    else
+    {
+      /*default session: When the server transitions from any diagnostic session other than the default session to the
+      defaultSession then the server shall stop each event that has been configured in the server via the
+      ResponseOnEvent (0x86) service and security shall be enabled. Any other active diagnostic functionality that is not
+      supported in the defaultSession shall be terminated. For example, any configured periodic scheduler or output control
+      shall be disabled and the states of the CommunicationControl and ControlDTCSetting services shall be reset, which
+      means that normal communication shall be re-enabled when it was disabled at the point in time the session is
+      switched to the defaultSession. The server shall reset all activated/initiated/changed settings/controls during the
+      activated session. This does not include long term changes programmed into non-volatile memory
+      */
+      m_sessiontype = a_sessiontype;
+      m_s3_timer.Stop();
+      m_sa_requestsequenceerror = true;
+      m_sa_security_level_unlocked = SecurityAccessLevel_NONE;
+      return true;
+    }
+  }
+  else
+  {
+    m_sessiontype = a_sessiontype;
     m_s3_timer.Reload();
     m_s3_timer.Start();
+    m_sa_requestsequenceerror = true;
+    m_sa_security_level_unlocked = SecurityAccessLevel_NONE;
+    return true;
   }
-
-  //if (m_sessiontype == DSC_Type_DefaultSession)
-  //stop all current session events
-  m_sessiontype = a_sessiontype;
-  m_sa_requestsequenceerror = true;
-  m_sa_security_level_unlocked = SecurityAccessLevel_NONE;
+  return false;
 }
 UDS::SessionType UDS::GetSessiontype()
 {
@@ -324,13 +361,13 @@ void UDSOnCAN::Execute()
     {
       case UDS::Service_DiagnosticSessionControl:
       {
-        #ifdef UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
-        if(GetSessiontype() < UDS::DSC_Type_ExtendedDiagnosticSession)
-        {
-          MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
-          break;
-        }
-        #endif //UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
+        // #ifdef UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
+        // if(GetSessiontype() < UDS::DSC_Type_ExtendedDiagnosticSession)
+        // {
+        //   MakeNegativeResponse(sid, UDS::NRC_ServiceNotSupportedInActiveSession, source);
+        //   break;
+        // }
+        // #endif //UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
         
         if(uds_frame->GetDataLength() > 1)
         {
@@ -339,32 +376,34 @@ void UDSOnCAN::Execute()
         }
         
         uint8_t sessiontype = *uds_frame->GetData() & 0x7F;
-        if(sessiontype > DSC_Type_SafetySystemDiagnosticSession)
+        if(sessiontype > DSC_Type_ExtendedDiagnosticSession)
         {
           MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported, source);
           break;
         }
-        // if() //check session change condition
-        // {
-        //   MakeNegativeResponse(sid, UDS_Frame::NRC_ConditionsNotCorrect);
-        //   break;
-        // }
-        SetSessionType(static_cast<UDS::SessionType>(sessiontype));
 
-        const bool pr_supression = *uds_frame->GetData() & 0x80;
-        if(pr_supression == 0)
+        if(SetSessionType(static_cast<UDS::SessionType>(sessiontype)))
         {
-          constexpr auto subfunction_size{1};
-          constexpr auto p2_timings_size{4};
-          const auto response_array_size{subfunction_size+p2_timings_size};
-          uint8_t* response_data{new uint8_t[response_array_size]};  
-          response_data[0] = sessiontype;
-          response_data[1] = 0x00;
-          response_data[2] = 0x32; //50ms
-          response_data[3] = 0x01;
-          response_data[4] = 0xF4; //5000ms
-          MakePositiveResponse(sid, &response_data[0], response_array_size, source);
-          delete [] response_data;
+          const bool pr_supression = *uds_frame->GetData() & 0x80;
+          if(pr_supression == 0)
+          {
+            constexpr auto subfunction_size{1};
+            constexpr auto p2_timings_size{4};
+            const auto response_array_size{subfunction_size+p2_timings_size};
+            uint8_t* response_data{new uint8_t[response_array_size]};  
+            response_data[0] = sessiontype;
+            response_data[1] = 0x00;
+            response_data[2] = 0x32; //50ms
+            response_data[3] = 0x01;
+            response_data[4] = 0xF4; //5000ms
+            MakePositiveResponse(sid, &response_data[0], response_array_size, source);
+            delete [] response_data;
+          }
+        }
+        else
+        {
+          MakeNegativeResponse(sid, UDS::NRC_ConditionsNotCorrect, source);
+          break;
         }
       }
       break;
@@ -387,8 +426,9 @@ void UDSOnCAN::Execute()
         }
         #endif //UDS_DEBUG_SESSIONTYPE_VALIDITY_ENABLED
 
-        constexpr auto subfunction_size{1};        const uint8_t secutityaccess_type = *uds_frame->GetData() & 0x7F;
-        const bool pr_supression = *uds_frame->GetData() & 0x80;
+        constexpr auto subfunction_size{1};
+        const uint8_t  secutityaccess_type = *uds_frame->GetData() & 0x7F;
+        const bool     pr_supression = *uds_frame->GetData() & 0x80;
 
         if(secutityaccess_type > SecurityAccessLevel_3_Response or secutityaccess_type == SecurityAccessLevel_NONE)
         {

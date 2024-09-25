@@ -145,7 +145,7 @@ public:
     SecurityAccessLevel_3_Response = 0x06,
   };
 
-  void        SetSessionType(const SessionType a_sessiontype);
+  bool        SetSessionType(const SessionType a_sessiontype);
   SessionType GetSessiontype();
   bool        CheckNumberOfSecurityAccessAttempts(const uint8_t a_subfunction);
   void        ReloadNumberOfSecurityAccessAttempts();
