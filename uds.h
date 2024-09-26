@@ -147,9 +147,10 @@ public:
 
   bool            SetSessionType(const SessionType a_sessiontype);
   SessionType     GetSessiontype();
-  void            ExecuteSecurityAccessAttemptsReload();
-  bool            CheckNumberOfSecurityAccessAttempts(const uint8_t a_securityaccesslevel);
-  void            ReloadNumberOfSecurityAccessAttempts(const uint8_t a_securityaccesslevel);
+  bool            CheckNumberOfSecurityAccessAttempts();
+  void            ReloadNumberOfSecurityAccessAttempts();
+  void            StartSecurityAccessTimer();
+  void            UnlockSecurityAccessLevel(const SecurityAccessLevel a_sa_level);
   void            SetCommunicationControl(CommunicationControl a_communication_control);
   bool            IsECURXEnabled();
   bool            IsECUTXEnabled();
@@ -169,17 +170,12 @@ protected:
   SessionType         m_sessiontype;
   SecurityAccessLevel m_sa_security_level_unlocked;
   bool                m_sa_requestsequenceerror;
-  uint8_t             m_sa_level_1_number_of_attempts;
-  uint8_t             m_sa_level_2_number_of_attempts;
-  uint8_t             m_sa_level_3_number_of_attempts;
+  uint8_t             m_sa_number_of_attempts;
   SeedSize            m_seed_size;
   uint64_t            m_seed;
   uint64_t            m_key;
 
-  Program_timer m_security_access_requestseed_timer;
-  Program_timer m_security_access_level1_timer;
-  Program_timer m_security_access_level2_timer;
-  Program_timer m_security_access_level3_timer;
+  Program_timer m_security_access_timer;
   Program_timer m_p2_timer;
   Program_timer m_s3_timer;
   Program_timer m_separation_time_min_this_device_timer;
