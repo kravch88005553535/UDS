@@ -11,12 +11,16 @@ UDS::UDS()
   , m_sessiontype{DSC_Type_DefaultSession}
   , m_sa_security_level_unlocked{SecurityAccessLevel_NONE}
   , m_sa_requestsequenceerror{true}
-  , m_programmingsession_number_of_attempts{5}
-  , m_extendeddiagnosticsession_number_of_attempts{5}
-  , m_safetysystemdiagnosticsession_number_of_attempts{5}
+  , m_sa_level_1_number_of_attempts{1}
+  , m_sa_level_2_number_of_attempts{1}
+  , m_sa_level_3_number_of_attempts{1}
   , m_seed_size{Seedsize_4_byte}
   , m_seed{}
   , m_key{}
+  , m_security_access_requestseed_timer{Program_timer::Type_one_pulse}
+  , m_security_access_level1_timer{Program_timer::Type_loop}
+  , m_security_access_level2_timer{Program_timer::Type_loop}
+  , m_security_access_level3_timer{Program_timer::Type_loop}
   , m_p2_timer{Program_timer::Type_one_pulse}
   , m_s3_timer{Program_timer::Type_one_pulse}
   , m_separation_time_min_this_device_timer{Program_timer::Type_one_pulse}
@@ -26,6 +30,17 @@ UDS::UDS()
   , m_block_size_this_device{0} //all frames without fcf
   , m_block_size_tester{}
 {
+  m_security_access_requestseed_timer.SetInterval_sec(10);
+  m_security_access_requestseed_timer.Start();
+
+  m_security_access_level1_timer.SetInterval_sec(20);
+  m_security_access_level2_timer.SetInterval_sec(20);
+  m_security_access_level3_timer.SetInterval_sec(20);
+  
+  //move to false sa first try
+  m_security_access_level1_timer.Start();
+  m_security_access_level2_timer.Start();
+  m_security_access_level3_timer.Start();
   m_s3_timer.SetInterval_sec(5);
   m_p2_timer.SetInterval_ms(50);
   m_separation_time_min_this_device_timer.SetInterval_ms(m_separation_time_this_device);
@@ -108,27 +123,26 @@ UDS::SessionType UDS::GetSessiontype()
 {
   return m_sessiontype;
 }
-bool UDS::CheckNumberOfSecurityAccessAttempts(const uint8_t a_subfunction)
+bool UDS::CheckNumberOfSecurityAccessAttempts(const uint8_t a_securityaccesslevel)
 {
-  auto requestseed{a_subfunction};
-  switch(requestseed)
+  switch(a_securityaccesslevel)
   {
-    case 0x02:
+    case SecurityAccessLevel_1_Key:
     {
-      if(m_programmingsession_number_of_attempts) 
-        return m_programmingsession_number_of_attempts--;
+      if(m_sa_level_1_number_of_attempts) 
+        return m_sa_level_1_number_of_attempts--;
     }
     break;
-    case 0x04:
+    case SecurityAccessLevel_2_Key:
     {
-      if(m_extendeddiagnosticsession_number_of_attempts)
-        return m_extendeddiagnosticsession_number_of_attempts--;
+      if(m_sa_level_2_number_of_attempts)
+        return m_sa_level_2_number_of_attempts--;
     }
     break;
-    case 0x06:
+    case SecurityAccessLevel_3_Key:
     {
-      if(m_safetysystemdiagnosticsession_number_of_attempts)
-        return m_safetysystemdiagnosticsession_number_of_attempts--;
+      if(m_sa_level_3_number_of_attempts)
+        return m_sa_level_3_number_of_attempts--;
     }
     break;
     default:
@@ -136,13 +150,25 @@ bool UDS::CheckNumberOfSecurityAccessAttempts(const uint8_t a_subfunction)
   }
   return false;
 }
-void UDS::ReloadNumberOfSecurityAccessAttempts()
+void UDS::ReloadNumberOfSecurityAccessAttempts(const uint8_t a_securityaccesslevel)
 {
-  m_programmingsession_number_of_attempts = 5;
-  m_extendeddiagnosticsession_number_of_attempts = 5;
-  m_safetysystemdiagnosticsession_number_of_attempts = 5;
+  switch(a_securityaccesslevel)
+  {
+    case SecurityAccessLevel_1_Key:
+      m_sa_level_1_number_of_attempts = 5;
+    break;
+
+    case SecurityAccessLevel_2_Key:
+      m_sa_level_2_number_of_attempts = 5;
+    break;
+    
+    case SecurityAccessLevel_3_Key:
+      m_sa_level_3_number_of_attempts = 5;
+    break;
+  }
   m_sa_requestsequenceerror = true;
 }
+
 void UDS::SetCommunicationControl(CommunicationControl a_communication_control)
 {
   switch (a_communication_control)
@@ -200,7 +226,6 @@ uint8_t UDS::GetSeparationTimeTester() const
 {
   return m_separation_time_min_tester;
 }
-
 void UDS::GenerateAndUpdateSecurityAccessSeed(UDS::SeedSize a_seed_size)
 {
   auto mt_seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -338,6 +363,7 @@ UDSOnCAN::~UDSOnCAN(){}
 void UDSOnCAN::Execute()
 {
   CheckS3Timer();
+
   if(!m_uds_rx_buffer.empty())
   {
     UDS_Frame* uds_frame{m_uds_rx_buffer.front()};
@@ -430,7 +456,7 @@ void UDSOnCAN::Execute()
         const uint8_t  secutityaccess_type = *uds_frame->GetData() & 0x7F;
         const bool     pr_supression = *uds_frame->GetData() & 0x80;
 
-        if(secutityaccess_type > SecurityAccessLevel_3_Response or secutityaccess_type == SecurityAccessLevel_NONE)
+        if(secutityaccess_type > SecurityAccessLevel_3_Key or secutityaccess_type == SecurityAccessLevel_NONE)
         {
           MakeNegativeResponse(sid, UDS::NRC_Subfunctionnotsupported, source);
           break;
@@ -439,14 +465,20 @@ void UDSOnCAN::Execute()
         //if session is not correct
         //MakeNegativeResponse(sid, UDS_Frame::NRC_ConditionsNotCorrect);
 
-        if(secutityaccess_type % 2 == 0x01)
+        if(secutityaccess_type % 2 == 0x01) //RequestSeed
         {
           if(uds_frame->GetDataLength() > subfunction_size)
           {
             MakeNegativeResponse(sid, UDS::NRC_IncorrectMessageLengthOrInvalidFormat, source);
             break;
           }
-
+          #ifdef UDS_DEBUG_SECURITYACCESS_ATTEMPTS_CHECK_ENABLED
+          if(!m_security_access_requestseed_timer.Check();)
+          {
+            MakeNegativeResponse(sid, UDS::NRC_RequiredTimeDelayNotExpired, source);
+            break;
+          }
+          #endif //UDS_DEBUG_SECURITYACCESS_ATTEMPTS_CHECK_ENABLED
           uint8_t* response_data{new uint8_t[subfunction_size+m_seed_size]};
           response_data[0] = secutityaccess_type;
           if(m_sa_security_level_unlocked == secutityaccess_type)
@@ -479,6 +511,7 @@ void UDSOnCAN::Execute()
             MakeNegativeResponse(sid, UDS::NRC_RequestSequenceError, source);
             break;
           }
+          #ifdef UDS_DEBUG_SECURITYACCESS_ATTEMPTS_CHECK_ENABLED
           if(!CheckNumberOfSecurityAccessAttempts(secutityaccess_type))
           {
             MakeNegativeResponse(sid, UDS::NRC_ExceededNumberOfAttempts, source);
@@ -489,6 +522,8 @@ void UDSOnCAN::Execute()
           //   MakeNegativeResponse(sid, UDS_Frame::NRC_RequiredTimeDelayNotExpired);
           //   break;
           // }
+          #endif //UDS_DEBUG_SECURITYACCESS_ATTEMPTS_CHECK_ENABLED
+          
           uint64_t recieved_key{};
           uint8_t* rkey_ptr{reinterpret_cast<uint8_t*>(&recieved_key)};
           const uint8_t* key_ptr{(uds_frame->GetData() + m_seed_size)};
