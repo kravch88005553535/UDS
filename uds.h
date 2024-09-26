@@ -148,6 +148,7 @@ public:
   bool            SetSessionType(const SessionType a_sessiontype);
   SessionType     GetSessiontype();
   bool            CheckNumberOfSecurityAccessAttempts();
+  void            DecreaseNumberOfSecurityAccessAttempts();
   void            ReloadNumberOfSecurityAccessAttempts();
   void            StartSecurityAccessTimer();
   void            UnlockSecurityAccessLevel(const SecurityAccessLevel a_sa_level);

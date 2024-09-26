@@ -111,17 +111,11 @@ UDS::SessionType UDS::GetSessiontype()
 }
 bool UDS::CheckNumberOfSecurityAccessAttempts()
 {
-  if(m_sa_number_of_attempts)
-  {
-    m_sa_number_of_attempts--;
-    return true;
-  }
-  else
-  {
-    if(m_security_access_timer.IsStarted())
-      return false;  
-  }
-  return false;
+  return m_sa_number_of_attempts;
+}
+void UDS::DecreaseNumberOfSecurityAccessAttempts()
+{
+  --m_sa_number_of_attempts;
 }
 void UDS::ReloadNumberOfSecurityAccessAttempts()
 {
@@ -431,14 +425,19 @@ void UDSOnCAN::Execute()
           break;
         }
         
-        #ifdef UDS_DEBUG_SECURITYACCESS_ATTEMPTS_CHECK_ENABLED
-        m_security_access_timer.Check();
+        static bool is_ecu_first_start{true};
+        if(m_security_access_timer.Check())
+          is_ecu_first_start = false;
+        
         if(m_security_access_timer.IsStarted())
         {
-          MakeNegativeResponse(sid, UDS::NRC_RequiredTimeDelayNotExpired, source);
+          if(is_ecu_first_start)
+            MakeNegativeResponse(sid, UDS::NRC_RequiredTimeDelayNotExpired, source);
+          else
+            MakeNegativeResponse(sid, UDS::NRC_ExceededNumberOfAttempts, source);
+          
           break;
         }
-        #endif //UDS_DEBUG_SECURITYACCESS_ATTEMPTS_CHECK_ENABLED
 
         if(secutityaccess_type % 2 == 0x01) //RequestSeed
         {
@@ -461,7 +460,7 @@ void UDSOnCAN::Execute()
             for (auto i{0}; i < m_seed_size; ++i)
               response_data[m_seed_size-i] = *((uint8_t*)&m_seed+i);
           }
-          //if(pr_supression == 0)  ??? :)
+          //if(pr_supression == 0)  ??? =)
           MakePositiveResponse(sid, response_data, subfunction_size+m_seed_size, source);
           
           delete[] response_data;
@@ -480,40 +479,55 @@ void UDSOnCAN::Execute()
             MakeNegativeResponse(sid, UDS::NRC_RequestSequenceError, source);
             break;
           }
-          #ifdef UDS_DEBUG_SECURITYACCESS_ATTEMPTS_CHECK_ENABLED
-          if(!CheckNumberOfSecurityAccessAttempts())
+          if(CheckNumberOfSecurityAccessAttempts())
+          {
+            DecreaseNumberOfSecurityAccessAttempts();
+            uint64_t recieved_key{};
+            uint8_t* rkey_ptr{reinterpret_cast<uint8_t*>(&recieved_key)};
+            const uint8_t* key_ptr{(uds_frame->GetData() + m_seed_size)};
+            for (auto i{0}; i < m_seed_size; ++i)
+              *rkey_ptr++ = *key_ptr--;
+
+            if(CompareSecurityAccessKey(recieved_key))
+            {
+              UnlockSecurityAccessLevel(static_cast<SecurityAccessLevel>(secutityaccess_type - 1)); 
+              ReloadNumberOfSecurityAccessAttempts();
+              // if(seed_in_response_is_needed)
+              // {
+              //   uint8_t* response_data{new uint8_t[subfunction_size + m_seed_size]};
+              //   response_data[0] = secutityaccess_type;
+              //   for (auto i{0}; i < m_seed_size; ++i)
+              //     response_data[m_seed_size-i] = *((uint8_t*)&m_seed+i);
+              //   if(pr_supression == 0)
+              //     MakePositiveResponse(sid, response_data, subfunction_size+m_seed_size, source);
+              //   delete[] response_data;
+              // }
+              // else
+              // {
+              uint8_t* response_data{new uint8_t[subfunction_size]};
+              response_data[0] = secutityaccess_type;
+              if(pr_supression == 0)
+                MakePositiveResponse(sid, response_data, subfunction_size, source);
+              delete[] response_data;
+              // }
+            }
+            else
+            {
+              MakeNegativeResponse(sid, UDS::NRC_InvalidKey, source); 
+              if(CheckNumberOfSecurityAccessAttempts() == 0)
+              {
+                StartSecurityAccessTimer();
+                ReloadNumberOfSecurityAccessAttempts();
+              }
+            }
+          }
+          else //never executes, here only for safety reasons(if initial value of m_sa_number_of_attempts equals 0)
           {
             MakeNegativeResponse(sid, UDS::NRC_ExceededNumberOfAttempts, source);
             StartSecurityAccessTimer();
             ReloadNumberOfSecurityAccessAttempts();
             break;
-          }
-          #endif //UDS_DEBUG_SECURITYACCESS_ATTEMPTS_CHECK_ENABLED
-          
-          uint64_t recieved_key{};
-          uint8_t* rkey_ptr{reinterpret_cast<uint8_t*>(&recieved_key)};
-          const uint8_t* key_ptr{(uds_frame->GetData() + m_seed_size)};
-          for (auto i{0}; i < m_seed_size; ++i)
-            *rkey_ptr++ = *key_ptr--;
-
-          if(CompareSecurityAccessKey(recieved_key))
-          {
-            UnlockSecurityAccessLevel(static_cast<SecurityAccessLevel>(secutityaccess_type - 1)); 
-            ReloadNumberOfSecurityAccessAttempts();
-            uint8_t* response_data{new uint8_t[subfunction_size]};
-            response_data[0] = secutityaccess_type;
-            if(pr_supression == 0)
-              MakePositiveResponse(sid, response_data, subfunction_size, source);
-            delete[] response_data;
-            /*
-             *  In case the server supports this delay timer then after a successful
-             *  SecurityAccess service 'sendKey' execution the server internal indication information for a delay timer
-             *  invocation on a power up/reset shall be cleared by the server.
-             */
-          }
-          else
-            MakeNegativeResponse(sid, UDS::NRC_InvalidKey, source); //start sa key delay required time timer
-
+          }       
           m_sa_requestsequenceerror = true;
         }
       }

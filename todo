@@ -1,38 +1,8 @@
-CHECK MAKENEGATIVERESPONSE
-
-перепилить stmin клиент сервер
--- todo -- reload sa attempts
-add sa time delay(Required Time Delay Not Expired (0x37)) & check in Exceeded Number of Attempts (0x36)
-добавить таймер в SecurityAccess
-
-//добавить к диду уровень доступа UDS
-
---in progress-- add sprmib check
---in progress-- add wait for fcf
-fcf set/get fcf flag everywhere добавить длину блока пакетов(BS)
-
---in progress-- add server is busy
---in progress-- реализовать все проверки по 7.5!!!!
-
---in progress-- timers добавить таймеры между пакетами
-
--- need test -- добавить уровни доступа к сидам
--- need test -- all buffers pop front operation
--- need test -- if uds key successful, reset default number of tries
--- need test -- security access levels 0x01 0x03 0x05
--- need test -- restore number of attempts if successful
--- need test -- действия при смене типа сессии: закрыть SA
--- need test -- отработать режим сессии m_sessiontype in UDS
-
-TIMERS
-----------------------
-A vehicle manufacturer specific time delay may be required before the server can positively respond to a
-service SecurityAccess ‘requestSeed’ message from the client after server power up/reset and after a certain
-number of false access attempts (see further description below).
-
-
 добавить переподключение сокетов при отвале
+перепилить stmin клиент сервер
 
 На будущее:
 -добавить чтение нескольких дидов в одном запросе
-
+-добавить к диду уровень securityaccess (битовая маска)
+-добавить ыусгкшенфссуыы уровень с параметрами (количество попыток, собственный таймер, собственный сид, собственный ключ)
+-timers добавить таймеры между отправляющимися пакетами
