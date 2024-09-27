@@ -10,10 +10,12 @@
 // }
 
 DTC::DTC(const char* a_dtc) 
-  : m_is_active{false}
+  : m_status{Status_Inactove}
 {
   if(strlen(a_dtc) != 5)
     std::cout << "Can not create DTC. " << a_dtc << " has invalid format!" << std::endl;
+
+    //parse DTC here
 }
 
 // DTC::DTC(const uint16_t a_dtc_id)
@@ -25,12 +27,21 @@ DTC::DTC(const char* a_dtc)
 DTC::~DTC()
 {}
 
-bool DTC::IsActive()
+bool DTC::IsActive() const
 {
-  return m_is_active;
+  return m_status & Status_Active;
+}
+bool DTC::IsSaved() const
+{
+  return m_status & Status_Saved;
 }
 
-std::time_t GetCurrentDateTime()
+void DTC::SetStatus(const Status a_status)
+{
+  m_status = a_status;
+}
+
+std::time_t DTC::GetCurrentDateTime()
 {
   const auto now = std::chrono::system_clock::now();
   const std::time_t t_c = std::chrono::system_clock::to_time_t(now);
