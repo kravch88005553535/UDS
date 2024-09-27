@@ -12,7 +12,8 @@
 #include <sys/fcntl.h>
 #include "can_frame.h"
 #include "uds.h"
-   
+#include "dtc.h"
+
 class Application
 {
 public:
@@ -38,6 +39,8 @@ private:
   UDSOnCAN&               mref_uds;
   DID_Repository&         m_did_repository;
 
+  std::vector<DTC>        m_dtc_vector;
+  
   const uint32_t          m_ecu_rx_can_id;
   const uint32_t          m_ecu_functional_can_id;
   const uint32_t          m_ecu_tx_can_id;

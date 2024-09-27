@@ -175,7 +175,6 @@ protected:
   SeedSize            m_seed_size;
   uint64_t            m_seed;
   uint64_t            m_key;
-
   Program_timer m_security_access_timer;
   Program_timer m_p2_timer;
   Program_timer m_s3_timer;
@@ -185,10 +184,9 @@ protected:
   uint8_t       m_separation_time_min_tester;
   const uint8_t m_block_size_this_device; 
   uint8_t       m_block_size_tester;
-
   DID_Repository m_did_repository;
-  bool          m_is_rx_enabled;
-  bool          m_is_tx_enabled;
+  bool           m_is_rx_enabled;
+  bool           m_is_tx_enabled;
   //CommunicationControl m_cc_status;
 };
 

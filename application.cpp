@@ -38,6 +38,18 @@ bool Application::Execute()
   CreateSocketUDS();
   CreateSocketDiagMesg();
   static std::ios_base::fmtflags coutformatflags{std::cout.flags()};
+
+  m_dtc_vector.push_back(DTC(DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x00));
+  m_dtc_vector.push_back(DTC(DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x01));
+  m_dtc_vector.push_back(DTC(DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x02));
+  m_dtc_vector.push_back(DTC(DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x03));
+  m_dtc_vector.push_back(DTC(DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x04));
+  m_dtc_vector.push_back(DTC(DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x05));
+  m_dtc_vector.push_back(DTC(DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x06));
+  m_dtc_vector.push_back(DTC(DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x07));
+  m_dtc_vector.push_back(DTC(DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x08));
+  m_dtc_vector.push_back(DTC(DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x09));
+  
   while (1)
   {
     std::cout.flags(coutformatflags);
