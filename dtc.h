@@ -45,7 +45,7 @@ public:
   
   bool IsActive() const;
   bool IsSaved() const;
-  const char* GetDTC();
+  std::string GetAbbreviation() const;
 private:
   DTC() = delete;
   void CheckAgingCounter();

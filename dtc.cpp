@@ -1,3 +1,4 @@
+#include "sstream"
 #include <iostream>
 #include <cstring>
 #include "dtc.h"
@@ -71,9 +72,81 @@ void DTC::SetStatus(const Status a_status)
   m_status = a_status;
 }
 
-const char* DTC::GetDTC()
+std::string DTC::GetAbbreviation() const
 {
-  return "";
+  std::stringstream ss;
+
+  switch (m_letter)
+  {
+    case P_Powertrain:
+      ss << "P";
+    break;
+
+    case C_Chassis:
+      ss << "C";
+    break;
+
+    case B_Body:
+      ss << "B";
+    break;
+
+    case U_VehicleOnboardComputers:
+      ss << "U";
+    break;
+  }
+
+  m_standard == Standard_SAE_EOBD ? ss << "0" : ss << "1";
+
+  switch (m_subsystem)
+  {
+    case Subsystem_FuelAirMetering_AuxiliaryEmissionControls:
+      ss << "0";
+    break;
+
+    case Subsystem_FuelAirMetering:
+      ss << "1";
+    break;
+
+    case Subsystem_FuelAirMetering_InjectorCircuit:
+      ss << "2";
+    break;
+
+    case Subsystem_IgnitionSystemOrMisfire:
+      ss << "3";
+    break;
+
+    case Subsystem_AuxiliaryEmissionControls:
+      ss << "4";
+    break;
+
+    case Subsystem_VehicleSpeedControls_IdleControlSystem:
+      ss << "5";
+    break;
+
+    case Subsystem_ComputerOutputCircuit:
+      ss << "6";
+    break;
+
+    case Subsystem_Transmission_1:
+      ss << "7";
+    break;
+
+    case Subsystem_Transmission_2:
+      ss << "8";
+    break;
+
+    default: 
+      ss << "x";
+    break;
+  }
+
+  if(m_fault_description < 10)
+    ss << "0";
+  
+  ss << (uint32_t)m_fault_description;
+  
+
+  return ss.str();
 }
 
 std::time_t DTC::GetCurrentDateTime()
