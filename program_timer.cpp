@@ -79,6 +79,10 @@ bool Program_timer::Check()
     break; //fake, never executes
     }
   }
+  else
+    return false;
+
+  std::cout << "program timer check error" << '\n';
   return false;
 }
 void Program_timer::Reload()

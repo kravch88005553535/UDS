@@ -45,17 +45,21 @@ public:
   
   bool IsActive() const;
   bool IsSaved() const;
+  void Check();
+  bool SetActiveFlagThreshold(const uint32_t a_threshold);
+  bool SetSavedFlagThreshold(const uint32_t a_threshold);
   std::string GetAbbreviation() const;
+  static bool Check1msTimer();
 private:
   DTC() = delete;
-  void CheckAgingCounter();
+  void Test(); //Annex D
   void SetActiveFlag(const bool a_flag);
-  void SetSavedFlag(const bool a_flag);
+  void SetSaveFlag(const bool a_flag);
   void SetStatus(const Status a_status);
   std::time_t    GetCurrentDateTime();
-  Program_timer  m_checking_interval_timer;
-  uint32_t       m_aging_counter;
-  uint32_t       m_aging_counter_threshold;
+  int32_t        m_fault_detection_counter;
+  uint32_t       m_activeflag_threshold;
+  uint32_t       m_saveflag_threshold;
   Status         m_status;
   std::time_t    m_detection_timestamp;
   std::time_t    m_active_time;
@@ -64,6 +68,8 @@ private:
   const Standard  m_standard;
   const Subsystem m_subsystem;
   const uint8_t   m_fault_description;
+
+  static Program_timer  m_1ms_timer;
 };
 
 #endif //__DTC_H__

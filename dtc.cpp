@@ -3,14 +3,16 @@
 #include <cstring>
 #include "dtc.h"
 
+
+Program_timer DTC::m_1ms_timer {Program_timer(Program_timer::Type_loop, 1000'000)};
+
 DTC::DTC(const Letter a_letter, const Standard a_standard, const Subsystem a_subsystem, const uint8_t a_fault_description)
   : m_letter{a_letter}
   , m_standard{a_standard}
   , m_subsystem{a_subsystem}
   , m_fault_description{a_fault_description}
-  
-  , m_checking_interval_timer{Program_timer(Program_timer::Type_loop, 1/*ms*/)}
 {
+  //throw exception if(a_fault_description >100)
 }
 
 DTC::DTC(const char* a_dtc)
@@ -18,13 +20,13 @@ DTC::DTC(const char* a_dtc)
   , m_standard{Standard_SAE_EOBD}
   , m_subsystem{Subsystem_FuelAirMetering_AuxiliaryEmissionControls}
   , m_fault_description{0}
-  , m_checking_interval_timer{Program_timer(Program_timer::Type_loop, 1)}
-  , m_aging_counter{0}
-  , m_aging_counter_threshold{100}
+  , m_activeflag_threshold{10}
+  , m_saveflag_threshold{100}
   , m_status{Status_Inactive}
   , m_detection_timestamp{0}
   , m_active_time{0}
 {
+  //throw exception if(a_fault_description >100)
   if(strlen(a_dtc) != 5)
     std::cout << "Can not create DTC. String " << a_dtc << " has an invalid format! \n only 5 characters allowed (for example \"P01234\")" << std::endl;
     //throw exception
@@ -33,22 +35,32 @@ DTC::DTC(const char* a_dtc)
 DTC::~DTC()
 {}
 
-void DTC::CheckAgingCounter()
+void DTC::Check()
 {
-  if(m_checking_interval_timer.Check())
-  {
-    if(m_aging_counter > m_aging_counter_threshold)
-      SetActiveFlag(true);
+  asm("nop");
+  //if()
+  // if(m_aging_counter > m_aging_counter_threshold)
+  //   SetActiveFlag(true);
 
-    if(m_aging_counter > 2 * m_aging_counter_threshold)
-      SetSavedFlag(true);
-      //save to memory
+  // if(m_aging_counter > 2 * m_aging_counter_threshold)
+  //   SetSavedFlag(true);
+  //   //save to memory
 
-    if(m_aging_counter <= m_aging_counter_threshold)
-      SetActiveFlag(false);
-  }
-  else
-    return;
+  // if(m_aging_counter <= m_aging_counter_threshold)
+  //   SetActiveFlag(false);
+
+}
+
+bool DTC::SetActiveFlagThreshold(const uint32_t a_threshold)
+{
+  m_activeflag_threshold = a_threshold;
+  return false;
+}
+
+bool DTC::SetSavedFlagThreshold(const uint32_t a_threshold)
+{
+  m_saveflag_threshold = a_threshold;
+  return false;
 }
 
 bool DTC::IsActive() const
@@ -63,7 +75,7 @@ bool DTC::IsSaved() const
 {
   return m_status & Status_Saved;
 }
-void DTC::SetSavedFlag(const bool a_flag)
+void DTC::SetSaveFlag(const bool a_flag)
 {
   m_status = static_cast<Status>(m_status | Status_Saved);
 }
@@ -142,13 +154,14 @@ std::string DTC::GetAbbreviation() const
 
   if(m_fault_description < 10)
     ss << "0";
-  
-  ss << (uint32_t)m_fault_description;
-  
 
+  ss << (uint32_t)m_fault_description;
   return ss.str();
 }
-
+bool DTC::Check1msTimer()
+{
+  return m_1ms_timer.Check();
+}
 std::time_t DTC::GetCurrentDateTime()
 {
   const auto now = std::chrono::system_clock::now();

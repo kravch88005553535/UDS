@@ -51,11 +51,12 @@ bool Application::Execute()
   m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x09));
   
   std::cout << std::flush;
-  for(auto it : m_dtc_vector)
+  for(const auto it : m_dtc_vector)
     std::cout << it.GetAbbreviation() << std::endl;
 
   while (1)
   {
+    CheckDTCStates();
     std::cout.flags(coutformatflags);
 
     CheckSocketForNewRxData();
@@ -103,7 +104,6 @@ bool Application::Execute()
   }
   return 0;
 }
-  
 void Application::CreateSocketUDS()
 {
   printf("Creating UDS socket... ");
@@ -441,4 +441,20 @@ void Application::TransmitCanFrameToSocket()
     std::cout << "TX< " << transmit_data; //no endl
 
   m_tx_can_deque.pop_front(); 
+}
+
+void Application::UpdateDTC()
+{
+
+}
+
+void Application::CheckDTCStates()
+{
+  if(DTC::Check1msTimer())
+  {
+    for(auto dtc: m_dtc_vector)
+    {
+      dtc.Check();
+    }
+  }
 }

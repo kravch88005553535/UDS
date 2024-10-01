@@ -51,7 +51,8 @@ private:
   void RecieveDataFromDiagSocket();
   void CheckSocketForNewRxData();
   void TransmitCanFrameToSocket();
-  void CheckForDTC();
+  void UpdateDTC();
+  void CheckDTCStates();
 };
 
 #endif //__APPLICATION_H__
