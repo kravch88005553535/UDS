@@ -36,24 +36,21 @@ Application::~Application()
 bool Application::Execute()
 {
   std::system("clear");
+  
   CreateSocketUDS();
   CreateSocketDiagMesg();
   static std::ios_base::fmtflags coutformatflags{std::cout.flags()};
   
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x00));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x01));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x02));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x03));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x04));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x05));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x06));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x07));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x08));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x09));
-  
-  std::cout << std::flush;
-  // for(const auto it : m_dtc_vector)
-  //   std::cout << it.GetAbbreviation() << std::endl;
+  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x00, 12000, 0));
+  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x01, 1000, 0));
+  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x02, 2000, 0));
+  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x03, 3000, 0));
+  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x04, 4000, 0));
+  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x05, 5000, 0));
+  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x06, 5500, 0));
+  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x07, 3200, 0));
+  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x08, 2700, 0));
+  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x09, 470, 0));
 
   while (1)
   {
@@ -443,17 +440,15 @@ void Application::TransmitCanFrameToSocket()
 
   m_tx_can_deque.pop_front(); 
 }
-
 void Application::UpdateDTC()
 {
 
 }
-
 void Application::CheckDTCStates()
 {
   if(DTC::Check1msTimer())
   {
-    for(auto dtc: m_dtc_vector)
+    for(auto& dtc: m_dtc_vector)
     {
       dtc.Check();
     }

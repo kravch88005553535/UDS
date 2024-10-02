@@ -7,7 +7,7 @@
 class DTC
 {
 public:
-  enum Status
+  enum Status: uint8_t
   {
     Status_Inactive = 0b00,
     Status_Saved= 0b01,
@@ -39,11 +39,13 @@ public:
     Subsystem_Transmission_2 = 8
   };
 
-  DTC(const Letter a_letter, const Standard a_standard, const Subsystem a_subsystem, const uint8_t a_fault_description);
-  DTC(const char* a_dtc);
+  DTC(const Letter a_letter, const Standard a_standard, 
+      const Subsystem a_subsystem, const uint8_t a_fault_description,
+      const int32_t a_activeflag_threshold, const int32_t a_saveflag_threshold = 0);
+  // DTC(const char* a_dtc);
   ~DTC();
   
-  bool IsActive() const;
+  bool IsConditionFailed() const;
   bool IsSaved() const;
   void Check();
   bool CheckCondition();
@@ -64,11 +66,15 @@ private:
   int32_t        m_activeflag_threshold;
   int32_t        m_saveflag_threshold;
   Status         m_status;
+  bool           m_is_condition_failed;
   bool           m_is_saved;
   bool           m_testfailed_bit;
   std::time_t    m_detection_timestamp;
   std::time_t    m_active_time;
-
+  
+  bool s_active_flag{false};
+  bool s_save_flag  {false};
+  
   const Letter    m_letter;
   const Standard  m_standard;
   const Subsystem m_subsystem;

@@ -4,44 +4,52 @@
 #include "dtc.h"
 #define DTC_DEBUG
 
-Program_timer DTC::m_1ms_timer {Program_timer(Program_timer::Type_loop, 1000'000)};
+Program_timer DTC::m_1ms_timer {Program_timer(Program_timer::Type_loop, 1000)};
 
-DTC::DTC(const Letter a_letter, const Standard a_standard, const Subsystem a_subsystem, const uint8_t a_fault_description)
+DTC::DTC(const Letter a_letter, const Standard a_standard, 
+    const Subsystem a_subsystem, const uint8_t a_fault_description,
+    const int32_t a_activeflag_threshold, const int32_t a_saveflag_threshold)
   : m_letter{a_letter}
   , m_standard{a_standard}
   , m_subsystem{a_subsystem}
   , m_fault_description{a_fault_description}
-{
-  //throw exception if(a_fault_description >100)
-  std::cout << GetAbbreviation() << std::endl;
-}
-
-DTC::DTC(const char* a_dtc)
-  : m_letter{P_Powertrain}
-  , m_standard{Standard_SAE_EOBD}
-  , m_subsystem{Subsystem_FuelAirMetering_AuxiliaryEmissionControls}
-  , m_fault_description{0}
   , m_fault_detection_counter{0}
-  , m_activeflag_threshold{1000}
-  , m_saveflag_threshold{5000}
+  , m_activeflag_threshold{a_activeflag_threshold}
+  , m_saveflag_threshold{a_saveflag_threshold}
   , m_status{Status_Inactive}
+  , m_is_condition_failed{true} //false
   , m_is_saved{true}
   , m_detection_timestamp{0}
   , m_active_time{0}
 {
   //throw exception if(a_fault_description >100)
-  if(strlen(a_dtc) != 5)
-    std::cout << "Can not create DTC. String " << a_dtc << " has an invalid format! \n only 5 characters allowed (for example \"P01234\")" << std::endl;
-    //throw exception
 }
+
+// DTC::DTC(const char* a_dtc)
+//   : m_letter{P_Powertrain}
+//   , m_standard{Standard_SAE_EOBD}
+//   , m_subsystem{Subsystem_FuelAirMetering_AuxiliaryEmissionControls}
+//   , m_fault_description{0}
+//   , m_fault_detection_counter{0}
+//   , m_activeflag_threshold{1000}
+//   , m_saveflag_threshold{5000}
+//   , m_status{Status_Inactive}
+//   , m_is_condition_failed{true} //false
+//   , m_is_saved{true}
+//   , m_detection_timestamp{0}
+//   , m_active_time{0}
+// {
+//   //throw exception if(a_fault_description >100)
+//   if(strlen(a_dtc) != 5)
+//     std::cout << "Can not create DTC. String " << a_dtc << " has an invalid format! \n only 5 characters allowed (for example \"P01234\")" << std::endl;
+//     //throw exception
+// }
 
 DTC::~DTC()
 {}
 
 void DTC::Check()
-{
-  m_fault_detection_counter++; //only for test
-
+{ //only for test
   CheckFaultDetectionCounter();
 }
 
@@ -55,31 +63,35 @@ bool DTC::SetSaveFlagThreshold(const uint32_t a_threshold)
   m_saveflag_threshold = a_threshold;
   return false;
 }
-bool DTC::IsActive() const
+bool DTC::IsConditionFailed() const
 {
-  return m_status & Status_Active;
+  return m_is_condition_failed;
 }
 void DTC::CheckFaultDetectionCounter()
 {
-  const bool active_flag{m_fault_detection_counter > m_activeflag_threshold};
-  const bool save_flag{m_fault_detection_counter > m_saveflag_threshold};
+  const bool active_flag{m_fault_detection_counter >= m_activeflag_threshold};
+  bool save_flag{m_fault_detection_counter == m_saveflag_threshold};
+  if(m_saveflag_threshold == 0)
+  save_flag = false;
   SetActiveFlag(active_flag);
   SetSaveFlag(save_flag);
 
-  if(IsActive())
+  if(IsConditionFailed())
   {
-    if(m_fault_detection_counter != INT32_MAX)
+    if(m_fault_detection_counter < m_saveflag_threshold)
       m_fault_detection_counter++;
+      //conditionfailed = false
   }
   else
   {
     if(m_fault_detection_counter > 0)
-      m_fault_detection_counter++; //--    
+      m_fault_detection_counter--;    
   }
   SetStatus(active_flag, save_flag);
 }
 void DTC::SetActiveFlag(const bool a_flag)
 {
+  m_status = static_cast<Status>(m_status & ~Status_Active);
   m_status = static_cast<Status>(m_status | Status_Active);
 }
 bool DTC::IsSaved() const
@@ -88,6 +100,7 @@ bool DTC::IsSaved() const
 }
 void DTC::SetSaveFlag(const bool a_flag)
 {
+  m_status = static_cast<Status>(m_status & ~Status_Saved);
   m_status = static_cast<Status>(m_status | Status_Saved);
   if(!a_flag)
     m_is_saved = false;
@@ -99,19 +112,17 @@ void DTC::SetStatus(const Status a_status)
 void DTC::SetStatus(const bool a_active_flag, const bool a_save_flag)
 {
   #ifdef DTC_DEBUG
-  static bool active_flag{false};
-  static bool save_flag{false};
-  if(active_flag != a_active_flag)
+  if(s_active_flag != a_active_flag)
   {
-    active_flag = a_active_flag;
-    std::cout << "DTC " << GetAbbreviation() << (a_active_flag ? "is_active" : "is_not_active" ) << std::endl;
+    s_active_flag = a_active_flag;
+    std::cout << "DTC " << GetAbbreviation() << (a_active_flag ? " is_active" : " is_not_active" ) << std::endl;
   }
-  if(save_flag != a_save_flag)
+  if(s_save_flag != a_save_flag)
   {
-    save_flag = a_save_flag;
-    std::cout << "DTC " << GetAbbreviation() << (a_save_flag ? "needs_save" : "do_not_need_save" ) << std::endl;
+    s_save_flag = a_save_flag;
+    std::cout << "DTC " << GetAbbreviation() << (a_save_flag ? " needs_save" : " do_not_need_save" ) << std::endl;
   }
-
+  std::cout << std::flush;
   #endif //DTC_DEBUG
 
   SetActiveFlag(a_active_flag);
