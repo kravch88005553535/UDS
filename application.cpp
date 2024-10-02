@@ -20,6 +20,7 @@ Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_fu
   , m_cmd_socket{}
   , m_cmd_socket_address{}
   , m_did_repository{mref_uds.GetDIDRepository()}
+  , m_dtc_vector{}
 {}
 Application::~Application()
 {
@@ -51,8 +52,8 @@ bool Application::Execute()
   m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x09));
   
   std::cout << std::flush;
-  for(const auto it : m_dtc_vector)
-    std::cout << it.GetAbbreviation() << std::endl;
+  // for(const auto it : m_dtc_vector)
+  //   std::cout << it.GetAbbreviation() << std::endl;
 
   while (1)
   {

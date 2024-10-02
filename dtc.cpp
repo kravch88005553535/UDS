@@ -2,7 +2,7 @@
 #include <iostream>
 #include <cstring>
 #include "dtc.h"
-
+#define DTC_DEBUG
 
 Program_timer DTC::m_1ms_timer {Program_timer(Program_timer::Type_loop, 1000'000)};
 
@@ -13,6 +13,7 @@ DTC::DTC(const Letter a_letter, const Standard a_standard, const Subsystem a_sub
   , m_fault_description{a_fault_description}
 {
   //throw exception if(a_fault_description >100)
+  std::cout << GetAbbreviation() << std::endl;
 }
 
 DTC::DTC(const char* a_dtc)
@@ -20,9 +21,11 @@ DTC::DTC(const char* a_dtc)
   , m_standard{Standard_SAE_EOBD}
   , m_subsystem{Subsystem_FuelAirMetering_AuxiliaryEmissionControls}
   , m_fault_description{0}
-  , m_activeflag_threshold{10}
-  , m_saveflag_threshold{100}
+  , m_fault_detection_counter{0}
+  , m_activeflag_threshold{1000}
+  , m_saveflag_threshold{5000}
   , m_status{Status_Inactive}
+  , m_is_saved{true}
   , m_detection_timestamp{0}
   , m_active_time{0}
 {
@@ -37,18 +40,9 @@ DTC::~DTC()
 
 void DTC::Check()
 {
-  asm("nop");
-  //if()
-  // if(m_aging_counter > m_aging_counter_threshold)
-  //   SetActiveFlag(true);
+  m_fault_detection_counter++; //only for test
 
-  // if(m_aging_counter > 2 * m_aging_counter_threshold)
-  //   SetSavedFlag(true);
-  //   //save to memory
-
-  // if(m_aging_counter <= m_aging_counter_threshold)
-  //   SetActiveFlag(false);
-
+  CheckFaultDetectionCounter();
 }
 
 bool DTC::SetActiveFlagThreshold(const uint32_t a_threshold)
@@ -56,16 +50,33 @@ bool DTC::SetActiveFlagThreshold(const uint32_t a_threshold)
   m_activeflag_threshold = a_threshold;
   return false;
 }
-
-bool DTC::SetSavedFlagThreshold(const uint32_t a_threshold)
+bool DTC::SetSaveFlagThreshold(const uint32_t a_threshold)
 {
   m_saveflag_threshold = a_threshold;
   return false;
 }
-
 bool DTC::IsActive() const
 {
   return m_status & Status_Active;
+}
+void DTC::CheckFaultDetectionCounter()
+{
+  const bool active_flag{m_fault_detection_counter > m_activeflag_threshold};
+  const bool save_flag{m_fault_detection_counter > m_saveflag_threshold};
+  SetActiveFlag(active_flag);
+  SetSaveFlag(save_flag);
+
+  if(IsActive())
+  {
+    if(m_fault_detection_counter != INT32_MAX)
+      m_fault_detection_counter++;
+  }
+  else
+  {
+    if(m_fault_detection_counter > 0)
+      m_fault_detection_counter++; //--    
+  }
+  SetStatus(active_flag, save_flag);
 }
 void DTC::SetActiveFlag(const bool a_flag)
 {
@@ -78,12 +89,34 @@ bool DTC::IsSaved() const
 void DTC::SetSaveFlag(const bool a_flag)
 {
   m_status = static_cast<Status>(m_status | Status_Saved);
+  if(!a_flag)
+    m_is_saved = false;
 }
 void DTC::SetStatus(const Status a_status)
 {
   m_status = a_status;
 }
+void DTC::SetStatus(const bool a_active_flag, const bool a_save_flag)
+{
+  #ifdef DTC_DEBUG
+  static bool active_flag{false};
+  static bool save_flag{false};
+  if(active_flag != a_active_flag)
+  {
+    active_flag = a_active_flag;
+    std::cout << "DTC " << GetAbbreviation() << (a_active_flag ? "is_active" : "is_not_active" ) << std::endl;
+  }
+  if(save_flag != a_save_flag)
+  {
+    save_flag = a_save_flag;
+    std::cout << "DTC " << GetAbbreviation() << (a_save_flag ? "needs_save" : "do_not_need_save" ) << std::endl;
+  }
 
+  #endif //DTC_DEBUG
+
+  SetActiveFlag(a_active_flag);
+  SetSaveFlag(a_save_flag);
+}
 std::string DTC::GetAbbreviation() const
 {
   std::stringstream ss;

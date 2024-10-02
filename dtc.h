@@ -12,7 +12,7 @@ public:
     Status_Inactive = 0b00,
     Status_Saved= 0b01,
     Status_Active = 0b10,
-    Status_ActiveAndSaved = 0b10,
+    Status_ActiveAndSaved = 0b11,
   };
   enum Letter
   {
@@ -46,21 +46,26 @@ public:
   bool IsActive() const;
   bool IsSaved() const;
   void Check();
+  bool CheckCondition();
   bool SetActiveFlagThreshold(const uint32_t a_threshold);
-  bool SetSavedFlagThreshold(const uint32_t a_threshold);
+  bool SetSaveFlagThreshold(const uint32_t a_threshold);
   std::string GetAbbreviation() const;
   static bool Check1msTimer();
 private:
   DTC() = delete;
   void Test(); //Annex D
+  void CheckFaultDetectionCounter();
   void SetActiveFlag(const bool a_flag);
   void SetSaveFlag(const bool a_flag);
   void SetStatus(const Status a_status);
+  void SetStatus(const bool a_active_flag, const bool a_save_flag);
   std::time_t    GetCurrentDateTime();
   int32_t        m_fault_detection_counter;
-  uint32_t       m_activeflag_threshold;
-  uint32_t       m_saveflag_threshold;
+  int32_t        m_activeflag_threshold;
+  int32_t        m_saveflag_threshold;
   Status         m_status;
+  bool           m_is_saved;
+  bool           m_testfailed_bit;
   std::time_t    m_detection_timestamp;
   std::time_t    m_active_time;
 
