@@ -48,6 +48,11 @@ DTC::DTC(const Letter a_letter, const Standard a_standard,
 DTC::~DTC()
 {}
 
+void DTC::SetConditionFailedFlag(const bool a_flag)
+{
+  m_is_condition_failed = a_flag;
+}
+
 void DTC::Check()
 { //only for test
   CheckFaultDetectionCounter();
@@ -92,7 +97,12 @@ void DTC::CheckFaultDetectionCounter()
 void DTC::SetActiveFlag(const bool a_flag)
 {
   m_status = static_cast<Status>(m_status & ~Status_Active);
-  m_status = static_cast<Status>(m_status | Status_Active);
+  if(a_flag)
+    m_status = static_cast<Status>(m_status | Status_Active);
+}
+bool DTC::IsActive() const
+{
+  return m_status & Status_Active;
 }
 bool DTC::IsSaved() const
 {
@@ -101,9 +111,8 @@ bool DTC::IsSaved() const
 void DTC::SetSaveFlag(const bool a_flag)
 {
   m_status = static_cast<Status>(m_status & ~Status_Saved);
-  m_status = static_cast<Status>(m_status | Status_Saved);
-  if(!a_flag)
-    m_is_saved = false;
+  if(a_flag)
+    m_status = static_cast<Status>(m_status | Status_Saved);
 }
 void DTC::SetStatus(const Status a_status)
 {
@@ -122,7 +131,6 @@ void DTC::SetStatus(const bool a_active_flag, const bool a_save_flag)
     s_save_flag = a_save_flag;
     std::cout << "DTC " << GetAbbreviation() << (a_save_flag ? " needs_save" : " do_not_need_save" ) << std::endl;
   }
-  std::cout << std::flush;
   #endif //DTC_DEBUG
 
   SetActiveFlag(a_active_flag);

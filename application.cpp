@@ -41,7 +41,7 @@ bool Application::Execute()
   CreateSocketDiagMesg();
   static std::ios_base::fmtflags coutformatflags{std::cout.flags()};
   
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x00, 12000, 0));
+  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x00, 5000, 15000));
   m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x01, 1000, 0));
   m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x02, 2000, 0));
   m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x03, 3000, 0));
@@ -55,6 +55,7 @@ bool Application::Execute()
   while (1)
   {
     CheckDTCStates();
+    UpdateDTC();
     std::cout.flags(coutformatflags);
 
     CheckSocketForNewRxData();
@@ -449,8 +450,159 @@ void Application::CheckDTCStates()
   if(DTC::Check1msTimer())
   {
     for(auto& dtc: m_dtc_vector)
-    {
       dtc.Check();
+  }
+
+  constexpr auto restart_from_watchdog_error{"B1600"};
+  constexpr auto high_voltage_error {"B1601"};
+  constexpr auto low_voltage_error {"B1602"};
+  constexpr auto gnss_module_error {"B1603"};
+  constexpr auto gyro_accel_access_error{"B1604"};
+  constexpr auto btp_firmware_update_error{"B1605"};
+  constexpr auto btp_kamaz_relief_map_load_error{"B1606"};
+  constexpr auto mcu_firmwareintegrity_error{"B1607"};
+  constexpr auto bip_error{"B1608"};
+  
+  for(auto& dtc: m_dtc_vector)
+  {
+    //if dtc personal timer is expired
+    //instead of all dtc check move check procedure here
+
+    const std::string abbreviation{dtc.GetAbbreviation()};
+
+    if(abbreviation == restart_from_watchdog_error)
+    {
+      bool error_flag{false};
+      m_did_repository.ReadDataIdentifier(DID_RestartFromWatchdogError, (uint8_t*)&error_flag, sizeof(error_flag));
+      dtc.SetConditionFailedFlag(error_flag);
+
+      constexpr uint16_t bitmask_for_diagdata_did{0x01};
+      uint16_t did_diagdata{};
+      m_did_repository.LE_ReadDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      
+      const bool current_state_in_diagdata = did_diagdata & bitmask_for_diagdata_did;
+      const bool desirable_state_in_diagdata{dtc.IsActive()};
+      if(current_state_in_diagdata != desirable_state_in_diagdata)
+      {
+        did_diagdata &= ~bitmask_for_diagdata_did;
+        did_diagdata |= error_flag ? bitmask_for_diagdata_did : 0;
+        m_did_repository.LE_WriteDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      }
+    }
+
+    if(abbreviation == high_voltage_error)
+    {
+      bool error_flag{false};
+      m_did_repository.ReadDataIdentifier(DID_HighVoltageError, (uint8_t*)&error_flag, sizeof(error_flag));
+      dtc.SetConditionFailedFlag(error_flag);
+
+      constexpr uint16_t bitmask_for_diagdata_did{0x02};
+      uint16_t did_diagdata{};
+      m_did_repository.LE_ReadDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      
+      const bool current_state_in_diagdata = did_diagdata & bitmask_for_diagdata_did;
+      const bool desirable_state_in_diagdata{dtc.IsActive()};
+      if(current_state_in_diagdata != desirable_state_in_diagdata)
+      {
+        did_diagdata &= ~bitmask_for_diagdata_did;
+        did_diagdata |= error_flag ? bitmask_for_diagdata_did : 0;
+        m_did_repository.LE_WriteDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      }
+    }
+
+    if(abbreviation == low_voltage_error)
+    {
+      bool error_flag{false};
+      m_did_repository.ReadDataIdentifier(DID_LowVoltageError, (uint8_t*)&error_flag, sizeof(error_flag));
+      dtc.SetConditionFailedFlag(error_flag);
+
+      constexpr uint16_t bitmask_for_diagdata_did{0x04};
+      uint16_t did_diagdata{};
+      m_did_repository.LE_ReadDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      
+      const bool current_state_in_diagdata = did_diagdata & bitmask_for_diagdata_did;
+      const bool desirable_state_in_diagdata{dtc.IsActive()};
+      if(current_state_in_diagdata != desirable_state_in_diagdata)
+      {
+        did_diagdata &= ~bitmask_for_diagdata_did;
+        did_diagdata |= error_flag ? bitmask_for_diagdata_did : 0;
+        m_did_repository.LE_WriteDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      }
+    }
+
+    if(abbreviation == gnss_module_error)
+    {
+      bool error_flag{false};
+      m_did_repository.ReadDataIdentifier(DID_GNSSModuleError, (uint8_t*)&error_flag, sizeof(error_flag));
+      dtc.SetConditionFailedFlag(error_flag);
+
+      constexpr uint16_t bitmask_for_diagdata_did{0x08};
+      uint16_t did_diagdata{};
+      m_did_repository.LE_ReadDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      
+      const bool current_state_in_diagdata = did_diagdata & bitmask_for_diagdata_did;
+      const bool desirable_state_in_diagdata{dtc.IsActive()};
+      if(current_state_in_diagdata != desirable_state_in_diagdata)
+      {
+        did_diagdata &= ~bitmask_for_diagdata_did;
+        did_diagdata |= error_flag ? bitmask_for_diagdata_did : 0;
+        m_did_repository.LE_WriteDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      }
+    }
+
+    if(abbreviation == gyro_accel_access_error)
+    {
+      bool error_flag{false};
+      m_did_repository.ReadDataIdentifier(DID_GyroAccelAccessError, (uint8_t*)&error_flag, sizeof(error_flag));
+      dtc.SetConditionFailedFlag(error_flag);
+
+      constexpr uint16_t bitmask_for_diagdata_did{0x10};
+      uint16_t did_diagdata{};
+      m_did_repository.LE_ReadDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      
+      const bool current_state_in_diagdata = did_diagdata & bitmask_for_diagdata_did;
+      const bool desirable_state_in_diagdata{dtc.IsActive()};
+      if(current_state_in_diagdata != desirable_state_in_diagdata)
+      {
+        did_diagdata &= ~bitmask_for_diagdata_did;
+        did_diagdata |= error_flag ? bitmask_for_diagdata_did : 0;
+        m_did_repository.LE_WriteDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      }
+    }
+
+    if(abbreviation == btp_firmware_update_error)
+    {
+      constexpr uint16_t bitmask_for_diagdata_did{0x20};
+    }
+
+    if(abbreviation == btp_kamaz_relief_map_load_error)
+    {
+      constexpr uint16_t bitmask_for_diagdata_did{0x40};
+    }
+
+    if(abbreviation == mcu_firmwareintegrity_error)
+    {
+      constexpr uint16_t bitmask_for_diagdata_did{0x80};
+    }
+
+    if(abbreviation == bip_error)
+    {
+      bool error_flag{false};
+      m_did_repository.ReadDataIdentifier(DID_BipError, (uint8_t*)&error_flag, sizeof(error_flag));
+      dtc.SetConditionFailedFlag(error_flag);
+
+      constexpr uint16_t bitmask_for_diagdata_did{0x100};
+      uint16_t did_diagdata{};
+      m_did_repository.LE_ReadDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      
+      const bool current_state_in_diagdata = did_diagdata & bitmask_for_diagdata_did;
+      const bool desirable_state_in_diagdata{dtc.IsActive()};
+      if(current_state_in_diagdata != desirable_state_in_diagdata)
+      {
+        did_diagdata &= ~bitmask_for_diagdata_did;
+        did_diagdata |= error_flag ? bitmask_for_diagdata_did : 0;
+        m_did_repository.LE_WriteDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      }
     }
   }
 }

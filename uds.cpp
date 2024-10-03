@@ -274,7 +274,7 @@ UDSOnCAN::UDSOnCAN(const uint32_t a_ecu_functional_can_id)
   m_did_repository.AddDataIdentifier(DID_RS232_2_BaudrateSetup,                                    sizeof(uint32_t), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_RS485_BaudrateSetup,                                      sizeof(uint32_t), DID_Instance::DID_Datatype_unsigned_integer, DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_WiFiPassword,                                             64,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_DiagData,                                                 2,                DID_Instance::DID_Datatype_raw_data,         DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_DiagData,                                                 sizeof(uint16_t), DID_Instance::DID_Datatype_raw_data,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareNumber,                     20,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_VehicleManufacturerECUSoftwareVersionNumber,              32,               DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_SystemSupplierIdentifierDataIdentifier,                   32,               DID_Instance::DID_Datatype_c_string,         DID_Instance::Readonly);
@@ -295,15 +295,15 @@ UDSOnCAN::UDSOnCAN(const uint32_t a_ecu_functional_can_id)
   m_did_repository.AddDataIdentifier(DID_BaseSoftwareVersion,                                      128,              DID_Instance::DID_Datatype_c_string,         DID_Instance::Readonly);
   m_did_repository.AddDataIdentifier(DID_FirmwareUpdateStatus,                                     100,              DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
   m_did_repository.AddDataIdentifier(DID_MapsUpdateStatus,                                         100,              DID_Instance::DID_Datatype_c_string,         DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_RestartFromWatchdogError,                                 1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_HighVoltageError,                                         1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_LowVoltageError,                                          1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_GNSSModuleError,                                          1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_GyroAccelAccessError,                                     1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_BTPFirmwareUpdateError,                                   1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_KamazReliefMapLoadError,                                  1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_MCUFirmwareIntegrityError,                                1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
-  m_did_repository.AddDataIdentifier(DID_BipError,                                                 1,                DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_RestartFromWatchdogError,                                 sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_HighVoltageError,                                         sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_LowVoltageError,                                          sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_GNSSModuleError,                                          sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_GyroAccelAccessError,                                     sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_BTPFirmwareUpdateError,                                   sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_KamazReliefMapLoadError,                                  sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_MCUFirmwareIntegrityError,                                sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
+  m_did_repository.AddDataIdentifier(DID_BipError,                                                 sizeof(bool),     DID_Instance::DID_Datatype_bool,             DID_Instance::ReadWrite);
 
   uint32_t default_async_interfaces_speed_kbaud{1};
   m_did_repository.LE_WriteDataIdentifier(DID_RS232_1_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
@@ -312,6 +312,9 @@ UDSOnCAN::UDSOnCAN(const uint32_t a_ecu_functional_can_id)
   m_did_repository.WriteDataIdentifier(DID_FirmwareUpdateStatus, " WX");
   m_did_repository.WriteDataIdentifier(DID_VIN, "ABCDE GFBD");
   m_did_repository.LE_ReadDataIdentifier(DID_RS232_1_BaudrateSetup, (uint8_t*)&default_async_interfaces_speed_kbaud, sizeof(default_async_interfaces_speed_kbaud));
+
+  const bool dd{1};
+  m_did_repository.LE_WriteDataIdentifier(DID_RestartFromWatchdogError, (uint8_t*)&dd, sizeof(dd));
   
   std::string temp{m_did_repository.ReadDataIdentifier(DID_VIN)};
 

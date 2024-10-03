@@ -45,10 +45,11 @@ public:
   // DTC(const char* a_dtc);
   ~DTC();
   
+  void SetConditionFailedFlag(const bool a_flag);
   bool IsConditionFailed() const;
+  bool IsActive() const;
   bool IsSaved() const;
   void Check();
-  bool CheckCondition();
   bool SetActiveFlagThreshold(const uint32_t a_threshold);
   bool SetSaveFlagThreshold(const uint32_t a_threshold);
   std::string GetAbbreviation() const;
