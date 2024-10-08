@@ -35,7 +35,7 @@ private:
 
   int                     m_cmd_socket;
   sockaddr_un             m_cmd_socket_address;
-
+ 
   UDSOnCAN&               mref_uds;
   DID_Repository&         m_did_repository;
 
@@ -45,6 +45,8 @@ private:
   const uint32_t          m_ecu_functional_can_id;
   const uint32_t          m_ecu_tx_can_id;
 
+  void GenerateDTC();
+  //void SaveDTC();
   void CreateSocketUDS();
   void CreateSocketDiagMesg();
   void CheckModifiedDids();

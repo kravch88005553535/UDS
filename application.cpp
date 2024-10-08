@@ -1,9 +1,9 @@
 #include <sstream>
 #include <ios>
+#include <fstream>
 #include "application.h"
 #include "program_timer.h"
 #include "did.h"
-#include <chrono> //only for test
 Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_functional_can_id, const uint32_t a_ecu_tx_can_id)
   : mref_uds {*(new UDSOnCAN(a_ecu_functional_can_id))} 
   , m_ecu_rx_can_id{a_ecu_rx_can_id}
@@ -36,21 +36,12 @@ Application::~Application()
 bool Application::Execute()
 {
   std::system("clear");
-  
+  static std::ios_base::fmtflags coutformatflags{std::cout.flags()};
+
   CreateSocketUDS();
   CreateSocketDiagMesg();
-  static std::ios_base::fmtflags coutformatflags{std::cout.flags()};
-  
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x00, 5000, 15000));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x01, 1000, 0));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x02, 2000, 0));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x03, 3000, 0));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x04, 4000, 0));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x05, 5000, 0));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x06, 5500, 0));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x07, 3200, 0));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x08, 2700, 0));
-  m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 0x09, 470, 0));
+
+  GenerateDTC();
 
   while (1)
   {
@@ -103,6 +94,105 @@ bool Application::Execute()
   }
   return 0;
 }
+
+void Application::GenerateDTC()
+{
+  constexpr auto dtc_file_full_path{"/root/dtc/dtc-information.csv"};
+  std::fstream dtc_file(dtc_file_full_path, std::ios::in | std::ios::out);
+  const bool file_exists{dtc_file.good()};
+  if(!file_exists)
+  {
+    std::cout << "DTC description file does not exist.\n" <<
+    "Creating a new one in /root/dtc directory.\nFilling DTC file with default DTC values.\n";
+    std::system("mkdir /root/dtc && touch /root/dtc/dtc-information.csv");
+
+    if(!dtc_file.is_open())
+    {
+      dtc_file.open(dtc_file_full_path, std::ios::in | std::ios::out| std::ios::trunc);
+      std::cout << "DTC file_is " << (dtc_file.is_open()? "opened successfully " : "not opened ") << "after creating\n";
+      //here check file for exceptions
+
+      /* B1600*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "00,5000,15000\n";
+      /* B1601*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "01,3000,15000\n";
+      /* B1602*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "02,100,15000\n";
+      /* B1603*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "03,1200,15000\n";
+      /* B1604*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "04,6500,15000\n";
+      /* B1605*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "05,5000,15000\n";
+      /* B1606*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "06,50,15000\n";
+      /* B1607*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "07,3100,15000\n";
+      /* B1608*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "08,900,15000\n";
+      /* B1609*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "09,6925,15000\n";
+      //write default data in file here
+      dtc_file.close();
+      dtc_file.open(dtc_file_full_path, std::ios::in | std::ios::out);
+    }
+  }
+
+  if(!dtc_file.is_open())
+  {
+    std::cout << "Can not read/create DTC file. Functionality of DTC module in this session is set to default values\n";
+    m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 1, 1000, 0));
+    m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 2, 2000, 0));
+    m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 3, 3000, 0));
+    m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 4, 4000, 0));
+    m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 5, 5000, 0));
+    m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 6, 5500, 0));
+    m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 7, 3200, 0));
+    m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 8, 2700, 0));
+    m_dtc_vector.push_back(DTC (DTC::B_Body, DTC::Standard_VehicleManufacturerSpecific, DTC::Subsystem_ComputerOutputCircuit, 9, 470, 0));
+  }
+  else
+  {
+    std::cout << "Started parsing DTC file \n";
+    std::string line{};
+    
+    while(!dtc_file.eof())
+    {
+      std::getline(dtc_file, line);
+      
+      constexpr auto max_line_length{2+2+2+3+7+6};
+      constexpr auto min_line_length{2+2+2+2+2+2};
+      if(line.length() > max_line_length or line.length() < min_line_length)
+        std::cout << "Parsing error!\n";
+      else
+        std::cout << line << '\n';
+      
+      auto comma_index{line.find(',')};
+      const volatile DTC::Letter letter{(DTC::Letter) std::strtoul(line.c_str(), nullptr, 10)};
+      line.erase(line.begin(), line.begin() + comma_index + 1);
+      
+      comma_index = line.find(',');
+      const volatile DTC::Standard standard{(DTC::Standard) std::strtoul(line.c_str(), nullptr, 10)};
+      line.erase(line.begin(), line.begin() + comma_index + 1);
+
+      comma_index = line.find(',');
+      const volatile DTC::Subsystem subsystem{(DTC::Subsystem) std::strtoul(line.c_str(), nullptr, 10)};
+      line.erase(line.begin(), line.begin() + comma_index + 1);
+      
+      comma_index = line.find(',');
+      const volatile uint32_t fault_description{(uint32_t) std::strtoul(line.c_str(), nullptr, 10)};
+      line.erase(line.begin(), line.begin() + comma_index + 1);
+
+      comma_index = line.find(',');
+      const volatile uint32_t activeflag_threshold{(uint32_t) std::strtoul(line.c_str(), nullptr, 10)};
+      line.erase(line.begin(), line.begin() + comma_index + 1);
+
+      const volatile uint32_t saveflag_threshold{(uint32_t) std::strtoul(line.c_str(), nullptr, 10)};
+
+
+      //check end of string
+      //if !end_of_string
+      //cout error
+
+      asm("nop");
+    }
+    
+  }
+
+  dtc_file.close();
+}
+
+
 void Application::CreateSocketUDS()
 {
   printf("Creating UDS socket... ");
