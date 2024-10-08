@@ -22,8 +22,6 @@ DTC::DTC(const Letter a_letter, const Standard a_standard,
   , m_detection_timestamp{0}
   , m_active_time{0}
 {
-  //throw exception if(a_fault_description >100)
-  std::cout << std::flush << GetAbbreviation() << std::endl;
 }
 
 // DTC::DTC(const char* a_dtc)

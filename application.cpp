@@ -4,6 +4,7 @@
 #include "application.h"
 #include "program_timer.h"
 #include "did.h"
+
 Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_functional_can_id, const uint32_t a_ecu_tx_can_id)
   : mref_uds {*(new UDSOnCAN(a_ecu_functional_can_id))} 
   , m_ecu_rx_can_id{a_ecu_rx_can_id}
@@ -94,10 +95,11 @@ bool Application::Execute()
   }
   return 0;
 }
-
 void Application::GenerateDTC()
 {
+  constexpr auto dtc_file_first_line{"Letter,Standard,Subsystem,Fault description,Activeflag threshold,Saveflag threshold"};
   constexpr auto dtc_file_full_path{"/root/dtc/dtc-information.csv"};
+  
   std::fstream dtc_file(dtc_file_full_path, std::ios::in | std::ios::out);
   const bool file_exists{dtc_file.good()};
   if(!file_exists)
@@ -112,18 +114,19 @@ void Application::GenerateDTC()
       std::cout << "DTC file_is " << (dtc_file.is_open()? "opened successfully " : "not opened ") << "after creating\n";
       //here check file for exceptions
 
-      /* B1600*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "00,5000,15000\n";
-      /* B1601*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "01,3000,15000\n";
-      /* B1602*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "02,100,15000\n";
-      /* B1603*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "03,1200,15000\n";
-      /* B1604*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "04,6500,15000\n";
-      /* B1605*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "05,5000,15000\n";
-      /* B1606*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "06,50,15000\n";
-      /* B1607*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "07,3100,15000\n";
-      /* B1608*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "08,900,15000\n";
-      /* B1609*/ dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "09,6925,15000\n";
-      //write default data in file here
-      dtc_file.close();
+      dtc_file << dtc_file_first_line << '\n';
+      dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "00,5000,15000" << '\n';  /* B1600*/
+      dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "01,3000,15000" << '\n';  /* B1601*/
+      dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "02,100,15000" << '\n';  /* B1602*/
+      dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "03,1200,15000" << '\n';  /* B1603*/
+      dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "04,6500,15000" << '\n';  /* B1604*/
+      dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "05,5000,15000" << '\n';  /* B1605*/
+      dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "06,50,15000" << '\n';  /* B1606*/
+      dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "07,3100,15000" << '\n';  /* B1607*/
+      dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "08,900,15000" << '\n';  /* B1608*/
+      dtc_file << DTC::B_Body << ',' << DTC::Standard_VehicleManufacturerSpecific  << ',' << DTC::Subsystem_ComputerOutputCircuit  << ',' << "09,6925,15000";  /* B1609*/
+
+      dtc_file.close(); //to save all the data into filesystem
       dtc_file.open(dtc_file_full_path, std::ios::in | std::ios::out);
     }
   }
@@ -145,15 +148,20 @@ void Application::GenerateDTC()
   {
     std::cout << "Started parsing DTC file \n";
     std::string line{};
+    std::getline(dtc_file, line);
     
+    if(line != dtc_file_first_line)
+    {
+      std::cout << "Header of DTC file is corrupted!" << '\n';
+    }
+
     while(!dtc_file.eof())
     {
       std::getline(dtc_file, line);
-      
       constexpr auto max_line_length{2+2+2+3+7+6};
       constexpr auto min_line_length{2+2+2+2+2+2};
       if(line.length() > max_line_length or line.length() < min_line_length)
-        std::cout << "Parsing error!\n";
+        std::cout << "Line \"" << line << "\" parsing error!\n";
       else
         std::cout << line << '\n';
       
@@ -179,20 +187,74 @@ void Application::GenerateDTC()
 
       const volatile uint32_t saveflag_threshold{(uint32_t) std::strtoul(line.c_str(), nullptr, 10)};
 
-
-      //check end of string
-      //if !end_of_string
-      //cout error
-
-      asm("nop");
+      const bool is_letter_valid{letter >= DTC::P_Powertrain and letter <= DTC::U_VehicleOnboardComputers};
+      const bool is_standard_valid{standard >= DTC::Standard_SAE_EOBD and standard <= DTC::Standard_VehicleManufacturerSpecific};
+      const bool is_subsystem_valid{subsystem >= DTC::Subsystem_FuelAirMetering_AuxiliaryEmissionControls and subsystem <= DTC::Subsystem_Transmission_2};
+      const bool is_fault_description_valid{fault_description >= 0 and fault_description <= 99};
+      const bool is_activeflag_threshold_valid{activeflag_threshold >= 0 and activeflag_threshold <= 999999};
+      const bool is_saveflag_threshold_valid{saveflag_threshold >= 0 and saveflag_threshold <= 999999};
+      
+      if(is_letter_valid and is_standard_valid and is_subsystem_valid and is_fault_description_valid
+          and is_activeflag_threshold_valid and is_saveflag_threshold_valid)
+      {
+        m_dtc_vector.push_back(DTC(letter,standard,subsystem, fault_description, activeflag_threshold, saveflag_threshold));        
+      }
+      else
+      {
+        std::cout << "An error occured while creating DTC\n"
+        << "conditions:\n"
+        << std::boolalpha
+        << "is_letter_valid: " << (bool) is_letter_valid << '\n'
+        << "is_standard_valid: " << is_standard_valid << '\n'
+        << "is_subsystem_valid: " << is_subsystem_valid << '\n'
+        << "is_fault_description_valid: " << is_fault_description_valid << '\n'
+        << "is_activeflag_threshold_valid: " << is_activeflag_threshold_valid << '\n'
+        << "is_saveflag_threshold_valid: " << is_saveflag_threshold_valid << '\n' << '\n'
+        << std::noboolalpha;
+      }
     }
-    
   }
-
   dtc_file.close();
 }
+bool Application::SaveDTC(const DTC a_dtc)
+{
+  constexpr auto save_file_first_line{"DTC,Activeflag,Saveflag"};
+  constexpr auto save_file_full_path{"/root/dtc/dtc-saved.csv"};
+  bool save_status{false};
+  
+  std::fstream save_file(save_file_full_path, std::ios::in | std::ios::out);
+  const bool file_exists{save_file.good()};
+  if(!file_exists)
+  {
+    std::cout << "DTC save file file does not exist.\n" <<
+    "Creating a new one in /root/dtc directory.\nFilling DTC file with default DTC values.\n";
+    std::system("mkdir /root/dtc && touch /root/dtc/dtc-saved.csv");
 
+    save_file.open(save_file_full_path, std::ios::in | std::ios::out| std::ios::trunc);
+    const bool is_opened{save_file.is_open()};
+    std::cout << "DTC save file_is " << (is_opened ? "opened successfully " : "not opened ") << "after creating\n";
+    if(is_opened)
+      save_file << save_file_first_line << '\n';
+  }
 
+  if(!save_file.is_open())
+  {
+    std::cout << "Failed to save DTC " << a_dtc.GetAbbreviation() << '\n';
+    save_status = false;
+  }
+  else
+  {
+    std::string line{};
+    while(!save_file.eof())
+    {
+      std::getline(save_file, line);
+      const auto comma_index{line.find(',')};
+    }
+    save_file.close();
+  }
+    
+  return save_status;
+}
 void Application::CreateSocketUDS()
 {
   printf("Creating UDS socket... ");

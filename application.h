@@ -46,7 +46,7 @@ private:
   const uint32_t          m_ecu_tx_can_id;
 
   void GenerateDTC();
-  //void SaveDTC();
+  bool SaveDTC(const DTC a_dtc);
   void CreateSocketUDS();
   void CreateSocketDiagMesg();
   void CheckModifiedDids();
