@@ -216,14 +216,25 @@ void Application::GenerateDTC()
   }
   dtc_file.close();
 }
-bool Application::SaveDTC(const DTC a_dtc)
+bool Application::SaveDTC(const DTC& a_dtc)
 {
   constexpr auto save_file_first_line{"DTC,Activeflag,Saveflag"};
   constexpr auto save_file_full_path{"/root/dtc/dtc-saved.csv"};
+  constexpr auto temp_file_full_path{"/root/dtc/temp-file.csv"};
   bool save_status{false};
   
   std::fstream save_file(save_file_full_path, std::ios::in | std::ios::out);
+
   const bool file_exists{save_file.good()};
+  
+  
+  // std::ofstream temp_file(temp_file_full_path, std::ios::trunc);
+  // const bool temp_file_exists{temp_file.good()};
+  // if(!file_exists)
+  // {
+
+  // }
+
   if(!file_exists)
   {
     std::cout << "DTC save file file does not exist.\n" <<
@@ -244,11 +255,23 @@ bool Application::SaveDTC(const DTC a_dtc)
   }
   else
   {
+    std::string testline{};
     std::string line{};
     while(!save_file.eof())
     {
       std::getline(save_file, line);
       const auto comma_index{line.find(',')};
+      if(comma_index != std::string::npos)
+      {
+        testline = line.substr(0, comma_index);
+        if(testline == a_dtc.GetAbbreviation())
+        {
+          //write correct line to temp file
+          save_status = true;
+        }
+      }
+      // else
+      //   temp_file <<
     }
     save_file.close();
   }

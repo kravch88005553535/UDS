@@ -129,6 +129,10 @@ void DTC::SetStatus(const bool a_active_flag, const bool a_save_flag)
   {
     s_save_flag = a_save_flag;
     std::cout << "DTC " << GetAbbreviation() << (a_save_flag ? " needs_save" : " do_not_need_save" ) << std::endl;
+    if(a_save_flag == 1)
+    {
+      //need_save = true
+    }
   }
   #endif //DTC_DEBUG
 
