@@ -47,7 +47,6 @@ bool Application::Execute()
   while (1)
   {
     CheckDTCStates();
-    UpdateDTC();
     std::cout.flags(coutformatflags);
 
     CheckSocketForNewRxData();
@@ -616,16 +615,19 @@ void Application::TransmitCanFrameToSocket()
 
   m_tx_can_deque.pop_front(); 
 }
-void Application::UpdateDTC()
-{
-
-}
 void Application::CheckDTCStates()
 {
   if(DTC::Check1msTimer())
   {
     for(auto& dtc: m_dtc_vector)
+    {
       dtc.Check();
+      if(dtc.GetNeedSaveFlag() == true)
+      {
+        SaveDTC(dtc);
+        dtc.SetNeedSaveFlag(false);
+      }
+    }
   }
 
   constexpr auto restart_from_watchdog_error{"B1600"};

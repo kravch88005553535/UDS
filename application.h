@@ -53,7 +53,6 @@ private:
   void RecieveDataFromDiagSocket();
   void CheckSocketForNewRxData();
   void TransmitCanFrameToSocket();
-  void UpdateDTC();
   void CheckDTCStates();
 };
 

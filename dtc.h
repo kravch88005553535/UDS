@@ -53,6 +53,8 @@ public:
   bool SetActiveFlagThreshold(const uint32_t a_threshold);
   bool SetSaveFlagThreshold(const uint32_t a_threshold);
   std::string GetAbbreviation() const;
+  bool GetNeedSaveFlag() const;
+  void SetNeedSaveFlag(const bool a_flag);
   static bool Check1msTimer();
 private:
   DTC() = delete;
@@ -60,6 +62,7 @@ private:
   void CheckFaultDetectionCounter();
   void SetActiveFlag(const bool a_flag);
   void SetSaveFlag(const bool a_flag);
+
   void SetStatus(const Status a_status);
   void SetStatus(const bool a_active_flag, const bool a_save_flag);
   std::time_t    GetCurrentDateTime();
@@ -68,7 +71,7 @@ private:
   int32_t        m_saveflag_threshold;
   Status         m_status;
   bool           m_is_condition_failed;
-  bool           m_is_saved;
+  bool           m_need_save;
   bool           m_testfailed_bit;
   std::time_t    m_detection_timestamp;
   std::time_t    m_active_time;

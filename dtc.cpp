@@ -16,9 +16,9 @@ DTC::DTC(const Letter a_letter, const Standard a_standard,
   , m_fault_detection_counter{0}
   , m_activeflag_threshold{a_activeflag_threshold}
   , m_saveflag_threshold{a_saveflag_threshold}
+  , m_need_save{false}
   , m_status{Status_Inactive}
   , m_is_condition_failed{true} //false
-  , m_is_saved{true}
   , m_detection_timestamp{0}
   , m_active_time{0}
 {
@@ -34,7 +34,6 @@ DTC::DTC(const Letter a_letter, const Standard a_standard,
 //   , m_saveflag_threshold{5000}
 //   , m_status{Status_Inactive}
 //   , m_is_condition_failed{true} //false
-//   , m_is_saved{true}
 //   , m_detection_timestamp{0}
 //   , m_active_time{0}
 // {
@@ -51,12 +50,11 @@ void DTC::SetConditionFailedFlag(const bool a_flag)
 {
   m_is_condition_failed = a_flag;
 }
-
 void DTC::Check()
 { //only for test
   CheckFaultDetectionCounter();
-}
 
+}
 bool DTC::SetActiveFlagThreshold(const uint32_t a_threshold)
 {
   m_activeflag_threshold = a_threshold;
@@ -111,7 +109,19 @@ void DTC::SetSaveFlag(const bool a_flag)
 {
   m_status = static_cast<Status>(m_status & ~Status_Saved);
   if(a_flag)
+  {
     m_status = static_cast<Status>(m_status | Status_Saved);
+    m_need_save = true;
+  }
+}
+
+bool DTC::GetNeedSaveFlag() const
+{
+  return m_need_save;
+}
+void DTC::SetNeedSaveFlag(const bool a_flag)
+{
+  m_need_save = a_flag;
 }
 void DTC::SetStatus(const Status a_status)
 {
