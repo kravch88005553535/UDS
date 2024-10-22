@@ -159,57 +159,73 @@ void Application::GenerateDTC()
       std::getline(dtc_file, line);
       constexpr auto max_line_length{2+2+2+3+7+6};
       constexpr auto min_line_length{2+2+2+2+2+2};
+
+      constexpr auto correct_commas_number{5};
+      std::string line_for_commas_check{line};
+      uint8_t commas_number{0};
+      std::size_t index{line_for_commas_check.find(',')};
+      while(index != std::string::npos)
+      {
+        commas_number++;
+        line_for_commas_check.erase(line_for_commas_check.begin(), line_for_commas_check.begin() + index + 1);
+        index = line_for_commas_check.find(',');
+      }
+
       if(line.length() > max_line_length or line.length() < min_line_length)
         std::cout << "Line \"" << line << "\" parsing error!\n";
+      else if(commas_number != correct_commas_number)
+        std::cout << "Line \"" << line << "\" commas number error!\n";
       else
+      {
         std::cout << line << '\n';
       
-      auto comma_index{line.find(',')};
-      const volatile DTC::Letter letter{(DTC::Letter) std::strtoul(line.c_str(), nullptr, 10)};
-      line.erase(line.begin(), line.begin() + comma_index + 1);
-      
-      comma_index = line.find(',');
-      const volatile DTC::Standard standard{(DTC::Standard) std::strtoul(line.c_str(), nullptr, 10)};
-      line.erase(line.begin(), line.begin() + comma_index + 1);
+        auto comma_index{line.find(',')};
+        const volatile DTC::Letter letter{(DTC::Letter) std::strtoul(line.c_str(), nullptr, 10)};
+        line.erase(line.begin(), line.begin() + comma_index + 1);
+        
+        comma_index = line.find(',');
+        const volatile DTC::Standard standard{(DTC::Standard) std::strtoul(line.c_str(), nullptr, 10)};
+        line.erase(line.begin(), line.begin() + comma_index + 1);
 
-      comma_index = line.find(',');
-      const volatile DTC::Subsystem subsystem{(DTC::Subsystem) std::strtoul(line.c_str(), nullptr, 10)};
-      line.erase(line.begin(), line.begin() + comma_index + 1);
-      
-      comma_index = line.find(',');
-      const volatile uint32_t fault_description{(uint32_t) std::strtoul(line.c_str(), nullptr, 10)};
-      line.erase(line.begin(), line.begin() + comma_index + 1);
+        comma_index = line.find(',');
+        const volatile DTC::Subsystem subsystem{(DTC::Subsystem) std::strtoul(line.c_str(), nullptr, 10)};
+        line.erase(line.begin(), line.begin() + comma_index + 1);
+        
+        comma_index = line.find(',');
+        const volatile uint32_t fault_description{(uint32_t) std::strtoul(line.c_str(), nullptr, 10)};
+        line.erase(line.begin(), line.begin() + comma_index + 1);
 
-      comma_index = line.find(',');
-      const volatile uint32_t activeflag_threshold{(uint32_t) std::strtoul(line.c_str(), nullptr, 10)};
-      line.erase(line.begin(), line.begin() + comma_index + 1);
+        comma_index = line.find(',');
+        const volatile uint32_t activeflag_threshold{(uint32_t) std::strtoul(line.c_str(), nullptr, 10)};
+        line.erase(line.begin(), line.begin() + comma_index + 1);
 
-      const volatile uint32_t saveflag_threshold{(uint32_t) std::strtoul(line.c_str(), nullptr, 10)};
+        const volatile uint32_t saveflag_threshold{(uint32_t) std::strtoul(line.c_str(), nullptr, 10)};
 
-      const bool is_letter_valid{letter >= DTC::P_Powertrain and letter <= DTC::U_VehicleOnboardComputers};
-      const bool is_standard_valid{standard >= DTC::Standard_SAE_EOBD and standard <= DTC::Standard_VehicleManufacturerSpecific};
-      const bool is_subsystem_valid{subsystem >= DTC::Subsystem_FuelAirMetering_AuxiliaryEmissionControls and subsystem <= DTC::Subsystem_Transmission_2};
-      const bool is_fault_description_valid{fault_description >= 0 and fault_description <= 99};
-      const bool is_activeflag_threshold_valid{activeflag_threshold >= 0 and activeflag_threshold <= 999999};
-      const bool is_saveflag_threshold_valid{saveflag_threshold >= 0 and saveflag_threshold <= 999999};
-      
-      if(is_letter_valid and is_standard_valid and is_subsystem_valid and is_fault_description_valid
-          and is_activeflag_threshold_valid and is_saveflag_threshold_valid)
-      {
-        m_dtc_vector.push_back(DTC(letter,standard,subsystem, fault_description, activeflag_threshold, saveflag_threshold));        
-      }
-      else
-      {
-        std::cout << "An error occured while creating DTC\n"
-        << "conditions:\n"
-        << std::boolalpha
-        << "is_letter_valid: " << (bool) is_letter_valid << '\n'
-        << "is_standard_valid: " << is_standard_valid << '\n'
-        << "is_subsystem_valid: " << is_subsystem_valid << '\n'
-        << "is_fault_description_valid: " << is_fault_description_valid << '\n'
-        << "is_activeflag_threshold_valid: " << is_activeflag_threshold_valid << '\n'
-        << "is_saveflag_threshold_valid: " << is_saveflag_threshold_valid << '\n' << '\n'
-        << std::noboolalpha;
+        const bool is_letter_valid{letter >= DTC::P_Powertrain and letter <= DTC::U_VehicleOnboardComputers};
+        const bool is_standard_valid{standard >= DTC::Standard_SAE_EOBD and standard <= DTC::Standard_VehicleManufacturerSpecific};
+        const bool is_subsystem_valid{subsystem >= DTC::Subsystem_FuelAirMetering_AuxiliaryEmissionControls and subsystem <= DTC::Subsystem_Transmission_2};
+        const bool is_fault_description_valid{fault_description >= 0 and fault_description <= 99};
+        const bool is_activeflag_threshold_valid{activeflag_threshold >= 0 and activeflag_threshold <= 999999};
+        const bool is_saveflag_threshold_valid{saveflag_threshold >= 0 and saveflag_threshold <= 999999};
+        
+        if(is_letter_valid and is_standard_valid and is_subsystem_valid and is_fault_description_valid
+            and is_activeflag_threshold_valid and is_saveflag_threshold_valid)
+        {
+          m_dtc_vector.push_back(DTC(letter,standard,subsystem, fault_description, activeflag_threshold, saveflag_threshold));        
+        }
+        else
+        {
+          std::cout << "An error occured while creating DTC\n"
+          << "conditions:\n"
+          << std::boolalpha
+          << "is_letter_valid: " << (bool) is_letter_valid << '\n'
+          << "is_standard_valid: " << is_standard_valid << '\n'
+          << "is_subsystem_valid: " << is_subsystem_valid << '\n'
+          << "is_fault_description_valid: " << is_fault_description_valid << '\n'
+          << "is_activeflag_threshold_valid: " << is_activeflag_threshold_valid << '\n'
+          << "is_saveflag_threshold_valid: " << is_saveflag_threshold_valid << '\n' << '\n'
+          << std::noboolalpha;
+        }
       }
     }
   }
@@ -217,33 +233,25 @@ void Application::GenerateDTC()
 }
 bool Application::SaveDTC(const DTC& a_dtc)
 {
+  bool save_status{true};
+  
   constexpr auto save_file_first_line{"DTC,Activeflag,Saveflag"};
   constexpr auto save_file_full_path{"/root/dtc/dtc-saved.csv"};
   constexpr auto temp_file_full_path{"/root/dtc/temp-file.csv"};
-  bool save_status{false};
   
   std::cout << "Saving DTC " << a_dtc.GetAbbreviation() << std::endl; 
 
   std::fstream save_file(save_file_full_path, std::ios::in | std::ios::out);
-
-  const bool file_exists{save_file.good()};
-  
-  // std::ofstream temp_file(temp_file_full_path, std::ios::trunc);
-  // const bool temp_file_exists{temp_file.good()};
-  // if(!file_exists)
-  // {
-
-  // }
-
-  if(!file_exists)
+  const bool savefile_exists{save_file.good()};
+  if(!savefile_exists)
   {
-    std::cout << "DTC save file file does not exist.\n" <<
-    "Creating a new one in /root/dtc directory.\nFilling DTC file with default DTC values.\n";
+    std::cout << "DTC save file file does not exist.\n" << "Creating a new one in /root/dtc directory.\n";
     std::system("mkdir /root/dtc && touch /root/dtc/dtc-saved.csv");
 
-    save_file.open(save_file_full_path, std::ios::in | std::ios::out| std::ios::trunc);
+    save_file.open(save_file_full_path, std::ios::in | std::ios::out | std::ios::trunc);
     const bool is_opened{save_file.is_open()};
-    std::cout << "DTC save file_is " << (is_opened ? "opened successfully " : "not opened ") << "after creating\n";
+    std::cout << "DTC save file is " << (is_opened ? "opened successfully " : "not opened ") << "after creating\n";
+    
     if(is_opened)
       save_file << save_file_first_line << '\n';
   }
@@ -257,6 +265,9 @@ bool Application::SaveDTC(const DTC& a_dtc)
   {
     std::string testline{};
     std::string line{};
+    uint32_t    save_file_line_index{0};
+    uint32_t    found{false};
+    
     while(!save_file.eof())
     {
       std::getline(save_file, line);
@@ -264,18 +275,57 @@ bool Application::SaveDTC(const DTC& a_dtc)
       if(comma_index != std::string::npos)
       {
         testline = line.substr(0, comma_index);
-        if(testline == a_dtc.GetAbbreviation())
-        {
-          //write correct line to temp file
-          save_status = true;
-        }
+        if(testline == a_dtc.GetAbbreviation() and !found)
+          found = save_file_line_index;
       }
-      // else
-      //   temp_file <<
+      save_file_line_index++;
     }
-    save_file.close();
-  }
     
+    save_file.clear();
+
+    if(found)
+    {
+      save_file_line_index = 0;
+      save_file.seekg(0, std::ios::beg);
+
+      std::ofstream temp_file(temp_file_full_path, std::ios::trunc);
+      const bool temp_file_exists{temp_file.good()};
+      if(!temp_file_exists)
+      {
+        std::cout << "Can not open temp file! DTC " << a_dtc.GetAbbreviation() << " saving error!\n";
+        save_status = false;
+      }
+      else
+      {
+        uint32_t temp_file_line_index{0};
+        while(!save_file.eof())
+        {
+          std::getline(save_file, line);
+          if(temp_file_line_index == found)
+          {
+            temp_file << a_dtc.GetAbbreviation() << ',' << a_dtc.IsActive() << ',' << a_dtc.IsSaved() << '\n';
+          }
+          else
+          {
+            temp_file << line << '\n';
+          }
+        }
+        save_file.close();
+        temp_file.close();
+      }
+    }
+    else
+    {
+      //save_file.seekp(std::ios::end);
+      // volatile auto write_position{save_file.tellp()};//seekp()
+      // volatile auto read_position{save_file.tellg()};//seekg()
+
+      save_file << a_dtc.GetAbbreviation() << ',' << a_dtc.IsActive() << ',' << a_dtc.IsSaved() << '\n';
+      //
+      save_file.close();
+      asm("nop");
+    }
+  }
   return save_status;
 }
 void Application::CreateSocketUDS()
