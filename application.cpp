@@ -222,10 +222,11 @@ bool Application::SaveDTC(const DTC& a_dtc)
   constexpr auto temp_file_full_path{"/root/dtc/temp-file.csv"};
   bool save_status{false};
   
+  std::cout << "Saving DTC " << a_dtc.GetAbbreviation() << std::endl; 
+
   std::fstream save_file(save_file_full_path, std::ios::in | std::ios::out);
 
   const bool file_exists{save_file.good()};
-  
   
   // std::ofstream temp_file(temp_file_full_path, std::ios::trunc);
   // const bool temp_file_exists{temp_file.good()};
@@ -622,10 +623,10 @@ void Application::CheckDTCStates()
     for(auto& dtc: m_dtc_vector)
     {
       dtc.Check();
-      if(dtc.GetNeedSaveFlag() == true)
+      if(dtc.GetSaveToMemoryStatus() == DTC::SaveToMemoryStatus_NeedSave)
       {
         SaveDTC(dtc);
-        dtc.SetNeedSaveFlag(false);
+        dtc.SetSaveToMemoryStatus(DTC::SaveToMemoryStatus_SavedToMemory);
       }
     }
   }

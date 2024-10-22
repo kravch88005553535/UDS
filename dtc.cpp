@@ -16,7 +16,7 @@ DTC::DTC(const Letter a_letter, const Standard a_standard,
   , m_fault_detection_counter{0}
   , m_activeflag_threshold{a_activeflag_threshold}
   , m_saveflag_threshold{a_saveflag_threshold}
-  , m_need_save{false}
+  , m_savetomemory_status{SaveToMemoryStatus_Unknown}
   , m_status{Status_Inactive}
   , m_is_condition_failed{true} //false
   , m_detection_timestamp{0}
@@ -53,7 +53,6 @@ void DTC::SetConditionFailedFlag(const bool a_flag)
 void DTC::Check()
 { //only for test
   CheckFaultDetectionCounter();
-
 }
 bool DTC::SetActiveFlagThreshold(const uint32_t a_threshold)
 {
@@ -100,7 +99,7 @@ void DTC::SetActiveFlag(const bool a_flag)
 bool DTC::IsActive() const
 {
   return m_status & Status_Active;
-}
+} 
 bool DTC::IsSaved() const
 {
   return m_status & Status_Saved;
@@ -111,17 +110,18 @@ void DTC::SetSaveFlag(const bool a_flag)
   if(a_flag)
   {
     m_status = static_cast<Status>(m_status | Status_Saved);
-    m_need_save = true;
+    if(m_savetomemory_status == SaveToMemoryStatus_LoadedFromFile or m_savetomemory_status == SaveToMemoryStatus_Unknown)
+      m_savetomemory_status = SaveToMemoryStatus_NeedSave;
   }
 }
 
-bool DTC::GetNeedSaveFlag() const
+DTC::SaveToMemoryStatus DTC::GetSaveToMemoryStatus() const
 {
-  return m_need_save;
+  return m_savetomemory_status;
 }
-void DTC::SetNeedSaveFlag(const bool a_flag)
+void DTC::SetSaveToMemoryStatus(const SaveToMemoryStatus a_savetomemory_status)
 {
-  m_need_save = a_flag;
+  m_savetomemory_status = a_savetomemory_status;
 }
 void DTC::SetStatus(const Status a_status)
 {
@@ -139,10 +139,6 @@ void DTC::SetStatus(const bool a_active_flag, const bool a_save_flag)
   {
     s_save_flag = a_save_flag;
     std::cout << "DTC " << GetAbbreviation() << (a_save_flag ? " needs_save" : " do_not_need_save" ) << std::endl;
-    if(a_save_flag == 1)
-    {
-      //need_save = true
-    }
   }
   #endif //DTC_DEBUG
 
