@@ -42,8 +42,7 @@
 
 добавить функцию reset all dtc codes
 
-save dtc
-find dtc in file
-find string index
-replace string
-or add dtc at the end of file
+find duplicates in save file
+b1609 active ?
+
+add check for active bound < save bound

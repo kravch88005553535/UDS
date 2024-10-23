@@ -234,7 +234,7 @@ void Application::GenerateDTC()
 bool Application::SaveDTC(const DTC& a_dtc)
 {
   bool save_status{true};
-  
+
   constexpr auto save_file_first_line{"DTC,Activeflag,Saveflag"};
   constexpr auto save_file_full_path{"/root/dtc/dtc-saved.csv"};
   constexpr auto temp_file_full_path{"/root/dtc/temp-file.csv"};
@@ -287,43 +287,38 @@ bool Application::SaveDTC(const DTC& a_dtc)
     {
       save_file_line_index = 0;
       save_file.seekg(0, std::ios::beg);
-
       std::ofstream temp_file(temp_file_full_path, std::ios::trunc);
       const bool temp_file_exists{temp_file.good()};
+
       if(!temp_file_exists)
       {
         std::cout << "Can not open temp file! DTC " << a_dtc.GetAbbreviation() << " saving error!\n";
         save_status = false;
+        return save_status; //not necessary here, this line can be deleted
       }
       else
       {
-        uint32_t temp_file_line_index{0};
+        volatile uint32_t temp_file_line_index{0};
         while(!save_file.eof())
         {
           std::getline(save_file, line);
           if(temp_file_line_index == found)
-          {
             temp_file << a_dtc.GetAbbreviation() << ',' << a_dtc.IsActive() << ',' << a_dtc.IsSaved() << '\n';
-          }
-          else
-          {
+          else if(line != "")
             temp_file << line << '\n';
-          }
+
+          temp_file_line_index++;
         }
         save_file.close();
         temp_file.close();
+        std::remove(save_file_full_path);
+        std::rename(temp_file_full_path, save_file_full_path);
       }
     }
     else
     {
-      //save_file.seekp(std::ios::end);
-      // volatile auto write_position{save_file.tellp()};//seekp()
-      // volatile auto read_position{save_file.tellg()};//seekg()
-
       save_file << a_dtc.GetAbbreviation() << ',' << a_dtc.IsActive() << ',' << a_dtc.IsSaved() << '\n';
-      //
       save_file.close();
-      asm("nop");
     }
   }
   return save_status;
