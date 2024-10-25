@@ -837,17 +837,63 @@ void Application::CheckDTCStates()
 
     if(abbreviation == btp_firmware_update_error)
     {
+      bool error_flag{false};
+      m_did_repository.ReadDataIdentifier(DID_BTPFirmwareUpdateError, (uint8_t*)&error_flag, sizeof(error_flag));
+      dtc.SetConditionFailedFlag(error_flag);
+
       constexpr uint16_t bitmask_for_diagdata_did{0x20};
+      uint16_t did_diagdata{};
+      m_did_repository.LE_ReadDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      
+      const bool current_state_in_diagdata = did_diagdata & bitmask_for_diagdata_did;
+      const bool desirable_state_in_diagdata{dtc.IsActive()};
+      if(current_state_in_diagdata != desirable_state_in_diagdata)
+      {
+        did_diagdata &= ~bitmask_for_diagdata_did;
+        did_diagdata |= error_flag ? bitmask_for_diagdata_did : 0;
+        m_did_repository.LE_WriteDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      }
     }
 
     if(abbreviation == btp_kamaz_relief_map_load_error)
     {
+      bool error_flag{false};
+      m_did_repository.ReadDataIdentifier(DID_KamazReliefMapLoadError, (uint8_t*)&error_flag, sizeof(error_flag));
+      dtc.SetConditionFailedFlag(error_flag);
+
       constexpr uint16_t bitmask_for_diagdata_did{0x40};
+      uint16_t did_diagdata{};
+      m_did_repository.LE_ReadDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      
+      const bool current_state_in_diagdata = did_diagdata & bitmask_for_diagdata_did;
+      const bool desirable_state_in_diagdata{dtc.IsActive()};
+      if(current_state_in_diagdata != desirable_state_in_diagdata)
+      {
+        did_diagdata &= ~bitmask_for_diagdata_did;
+        did_diagdata |= error_flag ? bitmask_for_diagdata_did : 0;
+        m_did_repository.LE_WriteDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      }
     }
 
     if(abbreviation == mcu_firmwareintegrity_error)
     {
+      bool error_flag{false};
+      m_did_repository.ReadDataIdentifier(DID_MCUFirmwareIntegrityError, (uint8_t*)&error_flag, sizeof(error_flag));
+      dtc.SetConditionFailedFlag(error_flag);
+
       constexpr uint16_t bitmask_for_diagdata_did{0x80};
+      uint16_t did_diagdata{};
+      m_did_repository.LE_ReadDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      
+      const bool current_state_in_diagdata = did_diagdata & bitmask_for_diagdata_did;
+      const bool desirable_state_in_diagdata{dtc.IsActive()};
+      if(current_state_in_diagdata != desirable_state_in_diagdata)
+      {
+        did_diagdata &= ~bitmask_for_diagdata_did;
+        did_diagdata |= error_flag ? bitmask_for_diagdata_did : 0;
+        m_did_repository.LE_WriteDataIdentifier(DID_DiagData, (uint8_t*)&did_diagdata, sizeof(did_diagdata));
+      }
+      
     }
 
     if(abbreviation == bip_error)
