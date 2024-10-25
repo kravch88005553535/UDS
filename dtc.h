@@ -4,6 +4,8 @@
 #include <chrono>
 #include "program_timer.h"
 
+#define DTC_DEBUG
+
 class DTC
 {
 public:
@@ -49,7 +51,6 @@ public:
   DTC(const Letter a_letter, const Standard a_standard, 
       const Subsystem a_subsystem, const uint8_t a_fault_description,
       const int32_t a_activeflag_threshold, const int32_t a_saveflag_threshold = 0);
-  // DTC(const char* a_dtc);
   ~DTC();
   
   void SetConditionFailedFlag(const bool a_flag);
@@ -83,9 +84,11 @@ private:
   std::time_t         m_detection_timestamp;
   std::time_t         m_active_time;
   
-  bool s_active_flag{false}; //temporary
-  bool s_save_flag  {false}; //temporary
-  
+  #ifdef DTC_DEBUG
+  bool s_active_flag{false};
+  bool s_save_flag  {false};
+  #endif //DTC_DEBUG
+
   const Letter    m_letter;
   const Standard  m_standard;
   const Subsystem m_subsystem;

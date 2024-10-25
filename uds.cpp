@@ -212,11 +212,11 @@ void UDS::GenerateAndUpdateSecurityAccessSeed(UDS::SeedSize a_seed_size)
   } while (seed == 0);
   
   m_seed = seed;
-  // std::cout << std::hex << "seed: "<< m_seed << '\n';
+  // std::cout << std::hex << "seed: " << m_seed << '\n';
   
   CalculateSecurityAccessFullKey();
   m_key = m_key & bitmask;
-  // std::cout << std::hex << "key: "<< m_key << '\n';
+  // std::cout << std::hex << "key: " << m_key << '\n';
 }
 void UDS::CalculateSecurityAccessFullKey()
 {
@@ -325,6 +325,7 @@ UDSOnCAN::UDSOnCAN(const uint32_t a_ecu_functional_can_id)
       (*it)->SetModifyFlag(false);
   }
 }
+
 UDSOnCAN::~UDSOnCAN(){}
 
 void UDSOnCAN::Execute()

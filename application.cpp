@@ -16,21 +16,25 @@ Application::Application(const uint32_t a_ecu_rx_can_id, const uint32_t a_ecu_fu
   , m_tx_can_deque{}
   , m_uds_socket{}
   , m_uds_socket_address{}
+  , m_is_uds_socket_connetcted{}
   , m_diagmesg_socket{}
   , m_diagmesg_socket_address{}
+  , m_is_diagmesg_socket_connetcted{}
   , m_cmd_socket{}
   , m_cmd_socket_address{}
+  , m_is_cmd_socket_connetcted{}
   , m_did_repository{mref_uds.GetDIDRepository()}
   , m_dtc_vector{}
 {}
 Application::~Application()
 {
-  //delete UDS socket
   if (close(m_uds_socket) < 0)
     std::cout << "socket close error\n";
   
-  //delete diagmesg socket
   if (close(m_diagmesg_socket) < 0)
+  std::cout << "socket close error\n";
+
+  if (close(m_cmd_socket) < 0)
   std::cout << "socket close error\n";
 }
 
@@ -39,13 +43,11 @@ bool Application::Execute()
   std::system("clear");
   static std::ios_base::fmtflags coutformatflags{std::cout.flags()};
 
-  CreateSocketUDS();
-  CreateSocketDiagMesg();
-
   GenerateDTC();
 
   while (1)
   {
+    CheckSocketsStates();
     CheckDTCStates();
     std::cout.flags(coutformatflags);
 
@@ -93,6 +95,96 @@ bool Application::Execute()
     RecieveDataFromDiagSocket();
   }
   return 0;
+}
+void Application::CheckSocketsStates()
+{
+  static Program_timer timer(Program_timer::Type_loop, 50);
+  if(timer.Check())
+  {
+    if(!m_is_uds_socket_connetcted)
+    {
+      if ((m_uds_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
+        perror("UDS Socket");
+      
+      m_uds_socket_address.sun_family = AF_UNIX;
+      auto socket_address{"/tmp/uds.sock"};
+      strcpy(m_uds_socket_address.sun_path, socket_address);
+      
+      auto len{strlen(m_uds_socket_address.sun_path) + sizeof(m_uds_socket_address.sun_family)};
+      
+      int status = fcntl(m_uds_socket, F_SETFL, fcntl(m_uds_socket, F_GETFL, 0) | O_NONBLOCK);
+      if(status == -1)
+        perror("calling UDS fcntl");
+      
+      if(connect(m_uds_socket, (sockaddr*)&m_uds_socket_address, len) == -1)
+      {
+        perror("UDS connect");
+        m_is_uds_socket_connetcted = false;
+        close(m_uds_socket);
+      }
+      else      
+      {
+        printf("Connected to UDS socket.\n");
+        m_is_uds_socket_connetcted = true;
+      }
+    }
+
+    if(!m_is_diagmesg_socket_connetcted)
+    {
+      if ((m_diagmesg_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
+        perror("DiagMesg Socket");
+      
+      m_diagmesg_socket_address.sun_family = AF_UNIX;
+      auto socket_address{"/tmp/udscmd.sock"};
+      strcpy(m_diagmesg_socket_address.sun_path, socket_address);
+      volatile auto len{strlen(m_diagmesg_socket_address.sun_path) + sizeof(m_diagmesg_socket_address.sun_family)};
+      int status = fcntl(m_diagmesg_socket, F_SETFL, fcntl(m_diagmesg_socket, F_GETFL, 0) | O_NONBLOCK);
+      if (status == -1)
+        perror("calling DiagMesg fcntl");
+
+      if (connect(m_diagmesg_socket, (sockaddr*)&m_diagmesg_socket_address, len) == -1)
+      {
+        perror("DiagMesg connect");
+        m_is_diagmesg_socket_connetcted = false;
+        close(m_diagmesg_socket);
+      }
+      else
+      {
+        m_is_diagmesg_socket_connetcted = true;
+        printf("Connected to DiagMesg socket.\n");
+      }
+    }
+
+    if(!m_is_cmd_socket_connetcted)
+    {
+      if ((m_cmd_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
+        perror("cmd Socket");
+
+      m_cmd_socket_address.sun_family = AF_UNIX;
+      auto cmd_socket_address{"/tmp/cmd.sock"};
+      strcpy(m_cmd_socket_address.sun_path, cmd_socket_address);
+      volatile auto length{strlen(m_cmd_socket_address.sun_path) + sizeof(m_cmd_socket_address.sun_family)};
+      int cmd_status = fcntl(m_cmd_socket, F_SETFL, fcntl(m_cmd_socket, F_GETFL, 0) | O_NONBLOCK);
+      if (cmd_status == -1){
+        perror("calling cmd fcntl");
+      }
+      if (connect(m_cmd_socket, (sockaddr*)&m_cmd_socket_address, length) == -1)
+      {
+        perror("cmd connect");
+        m_is_cmd_socket_connetcted = false;
+        close(m_cmd_socket);
+      }
+      else
+      {
+        printf("Connected to CmdTest socket.\n");
+        m_is_cmd_socket_connetcted = true;
+      }
+      //std::string tx_data{"DID.F1A3.BOOL.TRUE\n"};
+      // auto string_length{strlen(tx_data.c_str())+1};
+      // if(send(m_cmd_socket, tx_data.c_str(), string_length, 0) == -1)
+      //   perror("send");
+    }
+  }
 }
 void Application::GenerateDTC()
 {
@@ -145,7 +237,6 @@ void Application::GenerateDTC()
   }
   else
   {
-    std::cout << "Started parsing DTC file \n";
     std::string line{};
     std::getline(dtc_file, line);
     
@@ -171,6 +262,9 @@ void Application::GenerateDTC()
         index = line_for_commas_check.find(',');
       }
 
+      if(line == "")
+        continue;
+      
       if(line.length() > max_line_length or line.length() < min_line_length)
         std::cout << "Line \"" << line << "\" parsing error!\n";
       else if(commas_number != correct_commas_number)
@@ -234,12 +328,9 @@ void Application::GenerateDTC()
 bool Application::SaveDTC(const DTC& a_dtc)
 {
   bool save_status{true};
-
   constexpr auto save_file_first_line{"DTC,Activeflag,Saveflag"};
   constexpr auto save_file_full_path{"/root/dtc/dtc-saved.csv"};
   constexpr auto temp_file_full_path{"/root/dtc/temp-file.csv"};
-  
-  std::cout << "Saving DTC " << a_dtc.GetAbbreviation() << std::endl; 
 
   std::fstream save_file(save_file_full_path, std::ios::in | std::ios::out);
   const bool savefile_exists{save_file.good()};
@@ -281,6 +372,10 @@ bool Application::SaveDTC(const DTC& a_dtc)
       save_file_line_index++;
     }
     
+    const auto max_number_of_dtc{save_file_line_index-1};
+    std::vector<std::string> copied_dtcs;
+    copied_dtcs.reserve(max_number_of_dtc);
+
     save_file.clear();
 
     if(found)
@@ -289,6 +384,7 @@ bool Application::SaveDTC(const DTC& a_dtc)
       save_file.seekg(0, std::ios::beg);
       std::ofstream temp_file(temp_file_full_path, std::ios::trunc);
       const bool temp_file_exists{temp_file.good()};
+
 
       if(!temp_file_exists)
       {
@@ -322,83 +418,6 @@ bool Application::SaveDTC(const DTC& a_dtc)
     }
   }
   return save_status;
-}
-void Application::CreateSocketUDS()
-{
-  printf("Creating UDS socket... ");
-  if ((m_uds_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
-    perror("Socket");
-  printf("Done\n");
-  printf("Trying to connect...\n");
-  m_uds_socket_address.sun_family = AF_UNIX;
-  auto socket_address{"/tmp/uds.sock"};
-  strcpy(m_uds_socket_address.sun_path, socket_address);
-  
-  auto len{strlen(m_uds_socket_address.sun_path) + sizeof(m_uds_socket_address.sun_family)};
-  
-  int status = fcntl(m_uds_socket, F_SETFL, fcntl(m_uds_socket, F_GETFL, 0) | O_NONBLOCK);
-  if(status == -1)
-    perror("calling fcntl");
-  
-  if(connect(m_uds_socket, (sockaddr*)&m_uds_socket_address, len) == -1)
-    perror("connect");
-  
-  printf("Connected to UDS socket.\n\n");
-}
-void Application::CreateSocketDiagMesg()
-{
-  printf("Creating DiagMesg socket... ");
-  if ((m_diagmesg_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-    perror("Socket");
-    //return 1;
-  }
-  printf("Done\n");
-  printf("Trying to connect...\n");
-  m_diagmesg_socket_address.sun_family = AF_UNIX;
-  auto socket_address{"/tmp/udscmd.sock"};
-   strcpy(m_diagmesg_socket_address.sun_path, socket_address);
-  volatile auto len{strlen(m_diagmesg_socket_address.sun_path) + sizeof(m_diagmesg_socket_address.sun_family)};
-  int status = fcntl(m_diagmesg_socket, F_SETFL, fcntl(m_diagmesg_socket, F_GETFL, 0) | O_NONBLOCK);
-  if (status == -1){
-    perror("calling fcntl");
-    // handle the error.  By the way, I've never seen fcntl fail in this way
-  }
-  if (connect(m_diagmesg_socket, (sockaddr*)&m_diagmesg_socket_address, len) == -1)
-  {
-    perror("connect");
-    //exit(1);
-  }
-  printf("Connected to DiagMesg socket.\n\n");
-
-
-
-  printf("Creating CmdTest socket... ");
-  if ((m_cmd_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-    perror("Socket");
-    //return 1;
-  }
-  printf("Done\n");
-  printf("Trying to connect...\n");
-  m_cmd_socket_address.sun_family = AF_UNIX;
-  auto cmd_socket_address{"/tmp/cmd.sock"};
-   strcpy(m_cmd_socket_address.sun_path, cmd_socket_address);
-  volatile auto length{strlen(m_cmd_socket_address.sun_path) + sizeof(m_cmd_socket_address.sun_family)};
-  int cmd_status = fcntl(m_cmd_socket, F_SETFL, fcntl(m_cmd_socket, F_GETFL, 0) | O_NONBLOCK);
-  if (cmd_status == -1){
-    perror("calling fcntl");
-    // handle the error.  By the way, I've never seen fcntl fail in this way
-  }
-  if (connect(m_cmd_socket, (sockaddr*)&m_cmd_socket_address, length) == -1)
-  {
-    perror("connect");
-    //exit(1);
-  }
-  printf("Connected to CmdTest socket.\n\n");
-
-  //std::string tx_data{"DID.F1A3.BOOL.TRUE\n"};
-  // auto string_length{strlen(tx_data.c_str())+1};
-  // if(send(m_cmd_socket, tx_data.c_str(), string_length, 0) == -1)
-  //   perror("send");
 }
 void Application::CheckModifiedDids()
 {
@@ -454,11 +473,19 @@ void Application::CheckModifiedDids()
     std::string transmit_data{ss.str()};    
     auto string_length{strlen(transmit_data.c_str())+1};
     if(send(m_diagmesg_socket, (transmit_data +'\n').c_str(), string_length, 0) == -1)
+    {
       perror("send");
+      m_is_diagmesg_socket_connetcted = false;
+      close(m_diagmesg_socket);
+    }
+      
   }
 }
 void Application::RecieveDataFromDiagSocket()
 {
+  if(m_is_diagmesg_socket_connetcted == false)
+  return;
+
   static std::string recieved_data("");
   char string[100];
   auto t{recv(m_diagmesg_socket, string, 100, 0)};
@@ -468,6 +495,11 @@ void Application::RecieveDataFromDiagSocket()
     string[t] = '\0';
     printf("DIAG RX>%s", string);
   }
+  // else if(t < 0)
+  // {
+  //   m_is_diagmesg_socket_connetcted = false;
+  //   // close(m_diagmesg_socket);
+  // }
 
   std::size_t newline_index{recieved_data.find('\n')};
   if(newline_index and recieved_data.size())
@@ -524,22 +556,24 @@ void Application::RecieveDataFromDiagSocket()
 }
 void Application::CheckSocketForNewRxData()
 {  
+  if(m_is_uds_socket_connetcted == false)
+  return;
+
   static std::string recieved_data("");
-
   constexpr auto recieve_size{100};
-  
   char string[recieve_size];
-  auto t = recv(m_uds_socket, string, recieve_size, 0);
 
+  auto t = recv(m_uds_socket, string, recieve_size, 0);
   if(t > 0)
   {
     string[t] = '\0';
     recieved_data.append(string);
-    //std::cout << "recieved " << (int64_t)t << " bytes of data" << std::endl;
-    //for(volatile auto i{0}; i < t; ++i)
-    //std::cout << std::dec << (unsigned)string[i] << ' ';
-    //std::cout << '\n';
   }
+  // else if(t < 0)
+  // {
+  //   m_is_uds_socket_connetcted = false;
+  //   // close(m_uds_socket);
+  // }
   
   const auto newline_index{recieved_data.find('\n')};
   if(recieved_data.size() and newline_index != std::string::npos)
@@ -623,6 +657,9 @@ void Application::TransmitCanFrameToSocket()
 {
   if(m_tx_can_deque.size() == 0)
     return;
+  
+  if(m_is_uds_socket_connetcted == false)
+    return;
 
   volatile int nbytes;
   CAN_Frame* can_frame = m_tx_can_deque.front();
@@ -655,7 +692,12 @@ void Application::TransmitCanFrameToSocket()
   volatile auto string_length{strlen(transmit_data.c_str())};
   auto bts = send(m_uds_socket, transmit_data.c_str(), string_length, 0);
   if (bts == -1) 
+  {
     perror("send");
+    close(m_uds_socket);
+    m_is_uds_socket_connetcted = false;
+  }
+    
   else
     std::cout << "TX< " << transmit_data; //no endl
 

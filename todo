@@ -46,3 +46,4 @@ find duplicates in save file
 b1609 active ?
 
 add check for active bound < save bound
+При переносе из основного в темп файл пушить название в вектор

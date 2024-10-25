@@ -29,13 +29,16 @@ private:
 
   int                     m_uds_socket;
   sockaddr_un             m_uds_socket_address;
+  bool                    m_is_uds_socket_connetcted;
   
   int                     m_diagmesg_socket;
   sockaddr_un             m_diagmesg_socket_address;
+  bool                    m_is_diagmesg_socket_connetcted;
 
   int                     m_cmd_socket;
   sockaddr_un             m_cmd_socket_address;
- 
+  bool                    m_is_cmd_socket_connetcted;
+
   UDSOnCAN&               mref_uds;
   DID_Repository&         m_did_repository;
 
@@ -45,9 +48,9 @@ private:
   const uint32_t          m_ecu_functional_can_id;
   const uint32_t          m_ecu_tx_can_id;
 
+  void CheckSocketsStates();
   void GenerateDTC();
   bool SaveDTC(const DTC& a_dtc);
-  void CreateSocketUDS();
   void CreateSocketDiagMesg();
   void CheckModifiedDids();
   void RecieveDataFromDiagSocket();

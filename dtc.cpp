@@ -2,7 +2,6 @@
 #include <iostream>
 #include <cstring>
 #include "dtc.h"
-#define DTC_DEBUG
 
 Program_timer DTC::m_1ms_timer {Program_timer(Program_timer::Type_loop, 1000)};
 
@@ -18,30 +17,11 @@ DTC::DTC(const Letter a_letter, const Standard a_standard,
   , m_saveflag_threshold{a_saveflag_threshold}
   , m_savetomemory_status{SaveToMemoryStatus_Unknown}
   , m_status{Status_Inactive}
-  , m_is_condition_failed{true} //false
+  , m_is_condition_failed{false} //false by default, true if DTC is not used in the program
   , m_detection_timestamp{0}
   , m_active_time{0}
 {
 }
-
-// DTC::DTC(const char* a_dtc)
-//   : m_letter{P_Powertrain}
-//   , m_standard{Standard_SAE_EOBD}
-//   , m_subsystem{Subsystem_FuelAirMetering_AuxiliaryEmissionControls}
-//   , m_fault_description{0}
-//   , m_fault_detection_counter{0}
-//   , m_activeflag_threshold{1000}
-//   , m_saveflag_threshold{5000}
-//   , m_status{Status_Inactive}
-//   , m_is_condition_failed{true} //false
-//   , m_detection_timestamp{0}
-//   , m_active_time{0}
-// {
-//   //throw exception if(a_fault_description >100)
-//   if(strlen(a_dtc) != 5)
-//     std::cout << "Can not create DTC. String " << a_dtc << " has an invalid format! \n only 5 characters allowed (for example \"P01234\")" << std::endl;
-//     //throw exception
-// }
 
 DTC::~DTC()
 {}
@@ -51,7 +31,7 @@ void DTC::SetConditionFailedFlag(const bool a_flag)
   m_is_condition_failed = a_flag;
 }
 void DTC::Check()
-{ //only for test
+{
   CheckFaultDetectionCounter();
 }
 bool DTC::SetActiveFlagThreshold(const uint32_t a_threshold)
